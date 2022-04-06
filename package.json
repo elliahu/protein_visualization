@@ -12,5 +12,6 @@
     "chart.js": "^3.7.1",
     "chartjs-plugin-annotation": "^1.4.0",
     "chartjs-plugin-zoom": "^1.2.0"
-  }
+  },
+  "homepage": "https://elliahu.github.io/protein_visualization/"
 }
