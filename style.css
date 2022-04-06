@@ -1,0 +1,10 @@
+#topChartContainer, #bottomChartContainer{
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    width: 750px;
+    height: 50%;
+}
+body,html{
+    background-color: #f2f2f2;
+}
