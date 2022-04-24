@@ -10,6 +10,10 @@
     <script src="./node_modules/hammerjs/hammer.js"></script>
     <script src="./node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.js"></script>
     <script src="./node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.js"></script>
+
+    <!-- Slider -->
+    <link rel="stylesheet" href="src/css/rSlider.css">
+    <script src="src/js/rSlider.js"></script>
     
 
     <!--Scripts-->
@@ -21,13 +25,13 @@
 </head>
 <body style="margin:0px;">
 
+    
+    
     <div if="chartControls">
         <input type="range" id="thresholdRange" name="vol" min="0" max="1" step="0.01"> <span id="thresholdLabel"></span>
 
         <button id="prev">Prev</button>
         <button id="next">Next</button>
-
-        <canvas id="navigation"></canvas>
     </div>
 
     <div id="topChartContainer">
@@ -36,6 +40,7 @@
     <div id="bottomChartContainer">
         <canvas id="bottomChart"></canvas>
     </div>
+    <div style="padding:25px"><input type="text" id="valueRange" /></div>
     
 </body>
 </html>
