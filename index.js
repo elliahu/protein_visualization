@@ -6,6 +6,7 @@ let rangeLabel = document.getElementById('thresholdLabel');
 const nextButton = document.getElementById('next');
 const prevButton = document.getElementById('prev');
 const nextPrevStep = 1;
+const nextMultiplier = 50;
 const visibleStep = 10;
 var btnhold = false;
 
@@ -13,18 +14,18 @@ const tension = 0.5;
 
 var rangeSliderRange;
 
-
 /*
   Changes threshold
 */
 range.addEventListener('input', function () {
 	threshold.yValue = range.value;
-	rangeLabel.innerHTML = threshold.yValue;
+	rangeLabel.value = threshold.yValue;
 
 	console.log('threshold changed to ' + threshold.yValue);
 
 	//change color background
 	//TO BE CHANGED
+	topChart.options.animation = false;
 	topChart.data.datasets[2].fill.target.value = threshold.yValue;
 
 	//change horizontal line
@@ -34,13 +35,7 @@ range.addEventListener('input', function () {
 
 	topChart.update();
 	bottomChart.update();
-});
-
-/* Rerenders bottom boxes on threshold change */
-range.addEventListener('change', function (){
-	bottomChart.options.plugins.annotation = {};
-	bottomChart.options.plugins.annotation = drawBoxes(yValues2.topChart,threshold);
-	bottomChart.update();
+	topChart.options.animation = true;
 });
 
 // Sample data
@@ -52,16 +47,10 @@ console.log(xValues);
 const yValues = {
 	topChart: Array.from({ length: numOfValues }, () => (
 		Math.floor(Math.random() * (11 - 0) + 0)) / 10
-	),
-	bottomChart: Array.from({ length: numOfValues }, () => (
-		Math.floor(Math.random() * (11 - 0) + 0)) / 10
 	)
 }
 const yValues2 = {
 	topChart: Array.from({ length: numOfValues }, () => (
-		Math.floor(Math.random() * (11 - 0) + 0)) / 10
-	),
-	bottomChart: Array.from({ length: numOfValues }, () => (
 		Math.floor(Math.random() * (11 - 0) + 0)) / 10
 	)
 }
@@ -69,7 +58,37 @@ const yValues2 = {
 
 let threshold = { yValue: .5 };
 range.value = threshold;
-rangeLabel.innerHTML = range.value;
+rangeLabel.value = range.value;
+
+
+// init bottom chart bars
+
+var bottomChartBars = [];
+function initializeBottomBars(){
+	bottomChartBars = [];
+	yValues2.topChart.forEach(element => {
+		if(element >= threshold.yValue){
+			bottomChartBars.push(1)
+		}
+		else{
+			bottomChartBars.push(0)
+		}
+	});
+}
+initializeBottomBars();
+
+console.log(yValues2.topChart);
+console.log(bottomChartBars);
+
+
+/* Rerenders bottom boxes on threshold change */
+range.addEventListener('input', function (){
+	console.log('new threshlod: ' + threshold.yValue);
+	initializeBottomBars();
+	bottomChart.data.datasets[0].data = bottomChartBars;
+	bottomChart.update();
+	console.log(bottomChartBars);
+});
 
 /*
   Applies configuration and position of one chart to different chart
@@ -129,11 +148,20 @@ function drawBoxes(dataset,threshold) {
 	return ret;
 }
 
-
-
 let topChartData = {
 	labels: xValues,
 	datasets: [
+		{
+			label: 'Aggregation',
+			type: 'bar',
+			data: yValues2.topChart,
+			borderColor: '#333333',
+			tension: tension,
+			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
+			order:3,
+			barPercentage: 1,
+			categoryPercentage :1
+		},
 		{
 			label: 'ASA',
 			type: 'line',
@@ -144,16 +172,7 @@ let topChartData = {
 			order:1
 		},
 		{
-			label: '_agr',
-			type: 'bar',
-			data: yValues2.topChart,
-			borderColor: '#333333',
-			tension: tension,
-			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
-			order:3
-		},
-		{
-			label: 'Aggregation',
+			label: 'hidden',
 			type: 'line',
 			data: yValues2.topChart,
 			borderColor: '#333333',
@@ -172,11 +191,16 @@ const topChartConfig = {
 	type: 'line',
 	data: topChartData,
 	options: {
+		onHover: function(event,elemets){
+			syncHighlight(bottomChart, event, elemets);
+		},
 		barPercentage: 1,
 		interaction: {
             mode: 'nearest'
         },
-		animation: true,
+		animation:{
+			duration: 200
+		},
 		responsive: true,
 		scales: {
 			x: {
@@ -185,13 +209,20 @@ const topChartConfig = {
 			}
 		},
 		transitions: {
-			zoom: {
-			  animation: {
-				duration: 1000,
-			  }
+			active:{
+				animation:{
+					duration :0
+				}
 			}
-		  },
+		},
 		plugins: {
+			legend: {
+				labels: {
+				  filter: function(item, chart) {
+					return !item.text.includes('hidden');
+				  }
+				}
+			  },
 			zoom: {
 				zoom: {
 					wheel: {
@@ -226,17 +257,31 @@ const topChartConfig = {
 const bottomChartData = {
 	labels: xValues,
 	datasets: [
-		
+		{
+			label: 'label',
+			type: 'bar',
+			data: bottomChartBars,
+			borderColor: '#333333',
+			backgroundColor: 'rgba(236, 212, 68,0.5)',
+			tension: tension,
+			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
+			order:3,
+			barPercentage: 1,
+			categoryPercentage :1
+		}
 	]
 };
 const bottomChartConfig = {
 	type: 'bar',
 	data: bottomChartData,
 	options: {
-		interaction: {
-            mode: 'nearest'
-        },
-		animation: false,
+		onHover: function(event,elemets){
+			syncHighlight(topChart, event, elemets);
+		},
+		animation:{
+			duration: 200
+		},
+		transitions: false,
 		responsive: true,
 		legend: {
 			labels: {
@@ -260,26 +305,35 @@ const bottomChartConfig = {
 			}
 		},
 		plugins: {
+			legend:{
+				display:false
+			},
+			tooltip:{
+				enabled:false
+			},
 			zoom: {
 				zoom: {
-					wheel: { enabled: true },
+					wheel: { enabled: false },
 					mode: 'x',
 					onZoom: function () {
 						console.log("zoom");
+						topChart.options.animation = false;
 						updateChart(bottomChart, topChart);
+						topChart.options.animation = true;
 					}
 				},
 				pan: {
-					enabled: true,
+					enabled: false,
 					mode: 'x',
 					threshold: 0,
 					onPan: function () {
 						console.log("pan");
+						topChart.options.animation = false;
 						updateChart(bottomChart, topChart);
+						topChart.options.animation = true;
 					}
 				}
 			},
-			annotation: drawBoxes(yValues2.topChart,threshold)
 		},
 		maintainAspectRatio: false,
 	}
@@ -300,6 +354,32 @@ nextButton.addEventListener('click', chartNext);
 */
 prevButton.addEventListener('click', chartPrev);
 
+var intervalId;
+var intervalCnt = 0;
+//next button hold
+nextButton.addEventListener('mousedown',e => {
+	intervalId = setInterval(function(){
+		chartNext();
+    	intervalCnt++;
+    }, nextMultiplier);
+});
+nextButton.addEventListener('mouseup',e => {
+	clearInterval(intervalId);
+    intervalCnt = 0;
+});
+var _intervalId;
+var _intervalCnt = 0;
+//prev button hold
+prevButton.addEventListener('mousedown',e => {
+	_intervalId = setInterval(function(){
+		chartPrev();
+    	_intervalCnt++;
+    }, nextMultiplier);
+});
+prevButton.addEventListener('mouseup',e => {
+	clearInterval(_intervalId);
+    _intervalCnt = 0;
+});
 
 function moveChart(chart, x){
 	let step = chart.options.scales.x.max - chart.options.scales.x.min;
@@ -353,13 +433,30 @@ function changeChartView(chart, start, end){
 	chart.update();
 	bottomChart.options.animation = false;
 }
-
 function updateValRange(x,y){
 	valRange.setValues(x,y);
 }
 
+/* depracated */
 function highlightBar(ctx){
 	topChart.setActiveElements([
 		{datasetIndex: 1, index: bottomChart.options.plugins.annotation.annotations[ctx.id].xMin +.5}
 	]);
 }
+
+function syncHighlight(chart, event, elemets){
+	if(elemets.length != 0){
+		chart.setActiveElements([
+			{datasetIndex: 0, index: elemets[0].index}
+		]);
+		chart.tooltip.setActiveElements([
+			{datasetIndex: 0, index: elemets[0].index}
+		]);
+		chart.update();
+	}
+}
+
+/*
+* TODO
+	change highlight color depending on the value
+*/
