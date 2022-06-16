@@ -1,14 +1,10 @@
-#topChartContainer, #bottomChartContainer{
-    width: 100%;
-    display: block;
-}
-#topChartContainer{
-    height: 300px;
-}
-#bottomChartContainer{
-    height: 75px;
-}
 body,html{
     background-color: #fff;
+}
+#dataChartNavContainer{
+    padding: 30px;
+}
+#dataChartTopChartContainer{
+    height: 400px;
 }
 

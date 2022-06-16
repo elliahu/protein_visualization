@@ -1,462 +1,552 @@
-const ctx_top = document.getElementById('topChart');
-const ctx_bottom = document.getElementById('bottomChart');
-
-let range = document.getElementById('thresholdRange');
-let rangeLabel = document.getElementById('thresholdLabel');
-const nextButton = document.getElementById('next');
-const prevButton = document.getElementById('prev');
-const nextPrevStep = 1;
-const nextMultiplier = 50;
-const visibleStep = 10;
-var btnhold = false;
-
-const tension = 0.5;
-
-var rangeSliderRange;
-
-/*
-  Changes threshold
-*/
-range.addEventListener('input', function () {
-	threshold.yValue = range.value;
-	rangeLabel.value = threshold.yValue;
-
-	console.log('threshold changed to ' + threshold.yValue);
-
-	//change color background
-	//TO BE CHANGED
-	topChart.options.animation = false;
-	topChart.data.datasets[2].fill.target.value = threshold.yValue;
-
-	//change horizontal line
-	topChart.options.plugins.annotation.annotations.tresholdLine.yMin = threshold.yValue;
-	topChart.options.plugins.annotation.annotations.tresholdLine.yMax = threshold.yValue;
-
-
-	topChart.update();
-	bottomChart.update();
-	topChart.options.animation = true;
-});
-
-// Sample data
-const numOfValues = 200;
-const xValues = Array.from({ length: numOfValues }, () => (
-	String.fromCharCode(Math.floor(Math.random() * ('Z'.charCodeAt() - 'A'.charCodeAt()) + 'A'.charCodeAt())))
-);
-console.log(xValues);
-const yValues = {
-	topChart: Array.from({ length: numOfValues }, () => (
-		Math.floor(Math.random() * (11 - 0) + 0)) / 10
-	)
-}
-const yValues2 = {
-	topChart: Array.from({ length: numOfValues }, () => (
-		Math.floor(Math.random() * (11 - 0) + 0)) / 10
-	)
+// Dataset is used to encapsulate displayd values
+class Dataset{
+	type = 'bar';
+	filename = '';
+	backgroundColor = 'rgba(0,0,0,1)';
+	borderColor = 'rgba(0,0,0,1)';
+	hoverBackgroundColor = 'rgba(255, 184, 0,0.5)';
+	tension = 0.5;
+	barPercentage = 1;
+	categoryPercentage = 1;
+	data = [];
+	label = 'hidden';
 }
 
+// represents the top row of chart controls
+class DataChartControls{
+	thresholdRange;
+	thresholdInput;
+	prevButton;
+	nextButton;
 
-let threshold = { yValue: .5 };
-range.value = threshold;
-rangeLabel.value = range.value;
+	create(prevText = 'Prev', nextText = 'Next'){
+		this.#createThresholdRange();
+		this.#createThresholdInput();
+		this.#createPrevButton(prevText);
+		this.#createNextButton(nextText);
+	}
 
+	#createThresholdRange(){
+		this.thresholdRange = document.createElement('input');
+		this.thresholdRange.type = 'range';
+		this.thresholdRange.min = 0;
+		this.thresholdRange.max = 1;
+		this.thresholdRange.step = .01;
+	}
 
-// init bottom chart bars
+	#createThresholdInput(){
+		this.thresholdInput = document.createElement('input');
+		this.thresholdInput.type = 'number';
+		this.thresholdInput.step = .05;
+	}
 
-var bottomChartBars = [];
-function initializeBottomBars(){
+	#createPrevButton(prevText){
+		this.prevButton = document.createElement('button');
+		this.prevButton.innerHTML = prevText;
+	}
+
+	#createNextButton(nextText){
+		this.nextButton = document.createElement('button');
+		this.nextButton.innerHTML = nextText;
+	}
+
+}
+
+class DataChart{
+	// public fields
+	labels = [];
+	datasets = [];
+	controls = new DataChartControls();
+	topChart;
+	bottomChart;
+	navigationRange;
+
+	settings = {
+		nextPrevStep : 1,
+		nextMultiplier : 50,
+		visibleStep : 10,
+		btnhold : false,
+		tension : 0.5,
+		bottomChartHeight: 75
+	}
+
+	threshold = 0.5;
+
+	highlightIndex = null;
+
+	visibleArea = {
+		min: 1,
+		max: 10
+	};
+
 	bottomChartBars = [];
-	yValues2.topChart.forEach(element => {
-		if(element >= threshold.yValue){
-			bottomChartBars.push(1)
-		}
-		else{
-			bottomChartBars.push(0)
-		}
-	});
-}
-initializeBottomBars();
 
-console.log(yValues2.topChart);
-console.log(bottomChartBars);
+	// events
+	static highlightChanged = new Event('highlightChanged');
 
+	// configs
 
-/* Rerenders bottom boxes on threshold change */
-range.addEventListener('input', function (){
-	console.log('new threshlod: ' + threshold.yValue);
-	initializeBottomBars();
-	bottomChart.data.datasets[0].data = bottomChartBars;
-	bottomChart.update();
-	console.log(bottomChartBars);
-});
-
-/*
-  Applies configuration and position of one chart to different chart
-*/
-function updateChart(getUpdateChart, setUpdateChart) {
-	setUpdateChart.options.scales.x.min = getUpdateChart.options.scales.x.min;
-	setUpdateChart.options.scales.x.max = getUpdateChart.options.scales.x.max;
-	setUpdateChart.update();
-	updateValRange(getUpdateChart.options.scales.x.min,getUpdateChart.options.scales.x.max);
-}
-
-/*
-  Function renders threshold line into the chart
-*/
-function getThresholdAnnotation(threshold) {
-	return {
-		annotations: {
-			tresholdLine: {
-				// Indicates the type of annotation
-				type: 'line',
-				yMin: threshold,
-				yMax: threshold,
-				backgroundColor: 'rgba(255, 99, 132, 0.25)',
-				borderDash: [5, 15]
-			}
-		}
-	}
-}
-
-/* Draws second chart boxes */
-function drawBoxes(dataset,threshold) {
-
-	let ret = {
-		annotations: {
-		}
-	}
-	let i = 0;
-	dataset.forEach((value) => {
-		if(value >= threshold.yValue){
-			ret.annotations['box' + i] = {
-				type: 'box',
-				xMin: i-.5,
-				xMax: i+.5,
-				yMin: 0.1,
-				yMax: 0.9,
-				backgroundColor: 'rgba(236, 212, 68,0.5)',
-				borderWidth:0,
-				enter: function(context,event){
-					highlightBar(context);
-				}
-			}
-		}
-		i++;
-	});
-
-	console.log(ret);
-	return ret;
-}
-
-let topChartData = {
-	labels: xValues,
-	datasets: [
-		{
-			label: 'Aggregation',
-			type: 'bar',
-			data: yValues2.topChart,
-			borderColor: '#333333',
-			tension: tension,
-			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
-			order:3,
-			barPercentage: 1,
-			categoryPercentage :1
+	topChartConfig = {
+		data: {
+			labels: this.labels,
+			datasets: []
 		},
-		{
-			label: 'ASA',
-			type: 'line',
-			data: yValues.topChart,
-			borderColor: 'rgb(75, 192, 192)',
-			tension: tension,
-			borderDash: [5, 5],
-			order:1
-		},
-		{
-			label: 'hidden',
-			type: 'line',
-			data: yValues2.topChart,
-			borderColor: '#333333',
-			tension: tension,
-			fill: {
-				backgroundColor: 'rgba(0,0,0,0)',
-				target: { value: threshold.yValue },
-				above: 'rgba(236, 212, 68,0.5)',
-				below: 'rgba(0,0,0,0)'
+		options: {
+			onHover: (event, elements) => {
+				this.syncHighlight(event,elements);
 			},
-			order:2
-		}
-	]
-};
-const topChartConfig = {
-	type: 'line',
-	data: topChartData,
-	options: {
-		onHover: function(event,elemets){
-			syncHighlight(bottomChart, event, elemets);
-		},
-		barPercentage: 1,
-		interaction: {
-            mode: 'nearest'
-        },
-		animation:{
-			duration: 200
-		},
-		responsive: true,
-		scales: {
-			x: {
-				min: 0,
-				max: visibleStep,
-			}
-		},
-		transitions: {
-			active:{
-				animation:{
-					duration :0
+			barPercentage: 1,
+			interaction: {
+				mode: 'nearest'
+			},
+			animation:{
+				duration: 200
+			},
+			responsive: true,
+			scales: {
+				x: {
+					min: this.visibleArea.min,
+					max: this.visibleArea.max,
+				},
+				y:{
+					min: 0,
+					max: 1
 				}
-			}
+			},
+			transitions: {
+				active:{
+					animation:{
+						duration :0
+					}
+				}
+			},
+			plugins: {
+				legend: {
+					labels: {
+					  filter: function(item, chart) {
+						return !item.text.includes('hidden');
+					  }
+					}
+				  },
+				zoom: {
+					zoom: {
+						wheel: {
+							enabled: true
+						},
+						pinch: {
+							enabled: true
+						},
+						mode: 'x',
+						onZoom: () => {
+							this.#setPosition(this.topChart);
+							this.syncPosition();
+						}
+					},
+					pan: {
+						enabled: true,
+						mode: 'x',
+						threshold: 0,
+						onPan: () => {
+							this.#setPosition(this.topChart);
+							this.syncPosition();
+						}
+					}
+				},
+				annotation: this.getThresholdAnnotation(this.threshold)
+			},
+			maintainAspectRatio: false,
+		}
+	};
+
+	bottomChartConfig = {
+		type: 'bar',
+		data: {
+			labels: [],
+			datasets: []
 		},
-		plugins: {
+		options: {
+			onHover: (event, elements) => {
+				this.syncHighlight(event,elements);
+			},
+			animation:{
+				duration: 200
+			},
+			transitions: false,
+			responsive: true,
 			legend: {
 				labels: {
-				  filter: function(item, chart) {
-					return !item.text.includes('hidden');
-				  }
+					display:false
 				}
-			  },
-			zoom: {
-				zoom: {
-					wheel: {
-						enabled: true
-					},
-					pinch: {
-						enabled: true
-					},
-					mode: 'x',
-					onZoom: function () {
-						console.log("zoom");
-						updateChart(topChart, bottomChart);
-					}
+			},
+			scales: {
+				x: {
+					min: this.visibleArea.min,
+					max: this.visibleArea.max,
 				},
-				pan: {
-					enabled: true,
-					mode: 'x',
-					threshold: 1,
-					onPan: function () {
-						console.log("pan");
-						updateChart(topChart, bottomChart);
+				y:{
+					min:0,
+					max:1,
+					grid:{
+						display:false
+					},
+					ticks:{
+						color:'rgba(0,0,0,0)'
 					}
 				}
 			},
-			annotation: getThresholdAnnotation(threshold.yValue)
-		},
-		maintainAspectRatio: false,
-	}
-};
-
-
-const bottomChartData = {
-	labels: xValues,
-	datasets: [
-		{
-			label: 'label',
-			type: 'bar',
-			data: bottomChartBars,
-			borderColor: '#333333',
-			backgroundColor: 'rgba(236, 212, 68,0.5)',
-			tension: tension,
-			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
-			order:3,
-			barPercentage: 1,
-			categoryPercentage :1
-		}
-	]
-};
-const bottomChartConfig = {
-	type: 'bar',
-	data: bottomChartData,
-	options: {
-		onHover: function(event,elemets){
-			syncHighlight(topChart, event, elemets);
-		},
-		animation:{
-			duration: 200
-		},
-		transitions: false,
-		responsive: true,
-		legend: {
-			labels: {
-				display:false
-			}
-		},
-		scales: {
-			x: {
-				min: 0,
-				max: visibleStep,
-			},
-			y:{
-				min:0,
-				max:1,
-				grid:{
+			plugins: {
+				legend:{
 					display:false
 				},
-				ticks:{
-					color:'rgba(0,0,0,0)'
-				}
-			}
-		},
-		plugins: {
-			legend:{
-				display:false
-			},
-			tooltip:{
-				enabled:false
-			},
-			zoom: {
+				tooltip:{
+					enabled:false
+				},
 				zoom: {
-					wheel: { enabled: false },
-					mode: 'x',
-					onZoom: function () {
-						console.log("zoom");
-						topChart.options.animation = false;
-						updateChart(bottomChart, topChart);
-						topChart.options.animation = true;
+					zoom: {
+						wheel: { enabled: false },
+						mode: 'x',
+						onZoom: function () {
+							
+						}
+					},
+					pan: {
+						enabled: false,
+						mode: 'x',
+						threshold: 0,
+						onPan: function () {
+							
+						}
 					}
 				},
-				pan: {
-					enabled: false,
-					mode: 'x',
-					threshold: 0,
-					onPan: function () {
-						console.log("pan");
-						topChart.options.animation = false;
-						updateChart(bottomChart, topChart);
-						topChart.options.animation = true;
-					}
-				}
 			},
-		},
-		maintainAspectRatio: false,
+			maintainAspectRatio: false,
+		}
+	};
+
+
+	// private fields
+	#topChartCanvas;
+	#bottomChartCanvas;
+
+	/// fetches data in CSV format using get request
+	async fetchCsvFile(path, separator = ';'){
+		// load data
+		let data = await fetch(path);
+		if(!data.ok){
+			throw `Could not fetch ${path} file!`;
+		}
+		let text = await data.text();
+
+		// parse text line by line
+		let lines = text.split('\n');
+		if(lines.length > 0){
+			// empty instace of Dataset
+			let dataset = new Dataset();
+			dataset.filename = path;
+
+			// for each line
+			lines.forEach((line, index) => {
+				line = line.trim();
+				let cells = line.split(separator);
+				if(cells.length > 0){
+
+					// expected format:
+					// LABEL separator ASA ...
+					this.labels.push(cells[0]);
+					dataset.data.push(cells[1]);
+
+				}
+				else{
+					throw `File ${path} is not in the correct CSV format`;
+				}
+			});
+
+			// finally, push the newly created dataset to the datasets array
+			this.datasets.push(dataset);
+			this.topChartConfig.data.datasets.push({
+				type: 'line',
+				data: dataset.data,
+				backgroundColor: dataset.backgroundColor,
+				borderColor: dataset.borderColor,
+				tension: dataset.tension,
+				fill: {
+					backgroundColor: 'rgba(0,0,0,0)',
+					target: { value: this.threshold },
+					above: 'rgba(236, 212, 68,0.5)',
+					below: 'rgba(0,0,0,0)'
+				},
+				label: 'Aggregation line'
+			});
+			this.topChartConfig.data.datasets.push({
+				type: 'bar',
+				data: dataset.data,
+				barPercentage: dataset.barPercentage,
+				categoryPercentage: dataset.categoryPercentage,
+				hoverBackgroundColor: dataset.hoverBackgroundColor,
+				label: 'Aggregation value'
+			});
+		}
+		else{
+			throw `File ${path} is empty`;
+		}
 	}
-};
 
-/* Top chart */
-const topChart = new Chart(ctx_top, topChartConfig);
-/* Bottom Chart */
-const bottomChart = new Chart(ctx_bottom, bottomChartConfig);
+	addDataset(dataset){
+		this.datasets.push(dataset);
+		let dataObj = {
+			type: dataset.type,
+			data: dataset.data,
+			label: dataset.label,
+			borderColor: dataset.borderColor,
+			backgroundColor:dataset.backgroundColor,
+			hoverBackgroundColor: dataset.hoverBackgroundColor
+		};
 
-/*
-	Next Button Clicked
-*/
-nextButton.addEventListener('click', chartNext);
+		if(dataset.type === 'bar'){
+			dataObj.barPercentage = dataset.barPercentage;
+			dataObj.categoryPercentage = dataset.categoryPercentage;
+		}
 
-/*
-	Prev Button Clicked
-*/
-prevButton.addEventListener('click', chartPrev);
+		if(dataset.type === 'line'){
+			dataObj.tension = dataset.tension;
+		}
 
-var intervalId;
-var intervalCnt = 0;
-//next button hold
-nextButton.addEventListener('mousedown',e => {
-	intervalId = setInterval(function(){
-		chartNext();
-    	intervalCnt++;
-    }, nextMultiplier);
-});
-nextButton.addEventListener('mouseup',e => {
-	clearInterval(intervalId);
-    intervalCnt = 0;
-});
-var _intervalId;
-var _intervalCnt = 0;
-//prev button hold
-prevButton.addEventListener('mousedown',e => {
-	_intervalId = setInterval(function(){
-		chartPrev();
-    	_intervalCnt++;
-    }, nextMultiplier);
-});
-prevButton.addEventListener('mouseup',e => {
-	clearInterval(_intervalId);
-    _intervalCnt = 0;
-});
-
-function moveChart(chart, x){
-	let step = chart.options.scales.x.max - chart.options.scales.x.min;
-	chart.options.scales.x.min = x;
-	chart.options.scales.x.max = x + step;
-	chart.update();
-}
-
-function chartNext(){
-	if (true) { // TO DO bounds
-		topChart.options.scales.x.min += nextPrevStep;
-		topChart.options.scales.x.max += nextPrevStep;
-		bottomChart.options.animation = true;
-		topChart.update();
-		updateChart(topChart, bottomChart);
-		bottomChart.options.animation = false;
+		this.topChartConfig.data.datasets.push(dataObj);
+		
+		if(this.datasets.length - 1 > 0){
+			this.topChart.update();
+			this.bottomChart.update();
+		}
+		
 	}
-}
 
-function chartPrev(){
-	if (true) { // TO DO bounds
-		topChart.options.scales.x.min -= nextPrevStep;
-		topChart.options.scales.x.max -= nextPrevStep;
-		bottomChart.options.animation = true;
-		topChart.update();
-		updateChart(topChart, bottomChart);
-		bottomChart.options.animation = false;
+	/// Creates the chart and containers
+	init(container){
+		// create controls
+		let controlsContainer = document.createElement('div');
+		controlsContainer.id = 'dataChartControls';
+		this.controls.create();
+		controlsContainer.appendChild(this.controls.thresholdRange);
+		this.controls.thresholdRange.value = this.threshold;
+		this.controls.thresholdInput.value = this.threshold;
+		controlsContainer.appendChild(this.controls.thresholdInput);
+		controlsContainer.appendChild(this.controls.prevButton);
+		controlsContainer.appendChild(this.controls.nextButton);
+		container.appendChild(controlsContainer);
+
+		// create chart containers
+		let topChartContainer = document.createElement('div');
+		topChartContainer.id = 'dataChartTopChartContainer';
+
+		let bottomChartContainer = document.createElement('div');
+		bottomChartContainer.id = 'dataChartBottomChartContainer';
+
+		// create canvases for the charts
+		let topChartCanvas = document.createElement('canvas');
+		topChartCanvas.id = 'dataChartCanvas1';
+		this.#topChartCanvas = topChartCanvas;
+		let bottomChartCanvas = document.createElement('canvas');
+		bottomChartCanvas.id = 'dataChartCanvas2';
+		bottomChartCanvas.height = this.settings.bottomChartHeight;
+		this.#bottomChartCanvas = bottomChartCanvas;
+		topChartContainer.appendChild(topChartCanvas);
+		bottomChartContainer.appendChild(bottomChartCanvas);
+
+		// append chart containers to main container
+		container.appendChild(topChartContainer);
+		container.appendChild(bottomChartContainer);
+
+		// navigation range
+		let navContainer = document.createElement('div');
+		navContainer.id = 'dataChartNavContainer';
+		let navRange = document.createElement('input');
+		navRange.type = 'range';
+		navRange.id = 'navRange';
+		navContainer.appendChild(navRange);
+		container.appendChild(navContainer);
+
+		// asign callbacks
+		this.controls.prevButton.addEventListener('click',() => this.chartPrevStep());
+		this.controls.nextButton.addEventListener('click',() => this.chartNextStep());
+
+		this.create();
+		this.#initBottomChartBars();
 	}
-}
 
-var valRange = new rSlider({
-	target: '#valueRange',
-	values: Array.from(Array(numOfValues).keys()),
-	range: true,
-	tooltip: true,
-	scale: true,
-	labels: false,
-	set: [0, 20],
-	onChange: function (values) {
-		rangeSliderRange = values;
-		changeChartView(topChart,values.split(',')[0],values.split(',')[1]);
-		changeChartView(bottomChart,values.split(',')[0],values.split(',')[1]);
+	/// main method
+	create(){
+		// create charts
+		this.topChart = new Chart(this.#topChartCanvas, this.topChartConfig);
+		this.bottomChart = new Chart(this.#bottomChartCanvas, this.bottomChartConfig);
+		//create range slider
+		this.navigationRange = new rSlider({
+			target: '#navRange',
+			values: Array.from(Array(this.labels.length).keys()),
+			range: true,
+			tooltip: true,
+			scale: true,
+			labels: false,
+			set: [0, this.settings.visibleStep],
+			onChange: () => {
+				this.visibleArea.min = this.navigationRange.values.start;
+				this.visibleArea.max = this.navigationRange.values.end;
+				this.syncPosition();
+			}
+		});
+		this.controls.thresholdRange.addEventListener('input', (e) => {
+			this.#onThresholdRangeChange(e.target.value);
+		});
+		this.controls.thresholdInput.addEventListener('change', (e) => {
+			this.threshold = e.target.value;
+			this.controls.thresholdRange.value = e.target.value;
+			this.#onThresholdRangeChange(this.threshold);
+		});
 	}
-});
 
-function changeChartView(chart, start, end){
-	console.log("HEY " + start +" " + end);
-	chart.options.scales.x.min = parseInt(start);
-	chart.options.scales.x.max = parseInt(end);
-	bottomChart.options.animation = true;
-	chart.update();
-	bottomChart.options.animation = false;
-}
-function updateValRange(x,y){
-	valRange.setValues(x,y);
-}
+	/// called when threshold range is moved
+	#onThresholdRangeChange(threshold){
+		this.threshold = this.controls.thresholdRange.value;
+		this.controls.thresholdInput.value = this.controls.thresholdRange.value;
 
-/* depracated */
-function highlightBar(ctx){
-	topChart.setActiveElements([
-		{datasetIndex: 1, index: bottomChart.options.plugins.annotation.annotations[ctx.id].xMin +.5}
-	]);
-}
+		//change color background
+		//TO BE CHANGED
+		this.topChart.options.animation = false;
+		this.topChart.data.datasets[0].fill.target.value = this.threshold;
 
-function syncHighlight(chart, event, elemets){
-	if(elemets.length != 0){
-		chart.setActiveElements([
-			{datasetIndex: 0, index: elemets[0].index}
-		]);
-		chart.tooltip.setActiveElements([
-			{datasetIndex: 0, index: elemets[0].index}
-		]);
+		//change horizontal line
+		this.topChart.options.plugins.annotation.annotations.tresholdLine.yMin = this.threshold;
+		this.topChart.options.plugins.annotation.annotations.tresholdLine.yMax = this.threshold;
+
+
+		this.topChart.update();
+		this.bottomChart.update();
+		this.topChart.options.animation = true;
+
+		// rerender bottom boxes
+		this.#initBottomChartBars();
+	}
+
+
+	// creates bars in bottom chart
+	#initBottomChartBars(){
+		this.bottomChartBars = [];
+		this.bottomChart.data.datasets = [];
+		this.datasets[0].data.forEach( element => {
+			if(element >= this.threshold){
+				this.bottomChartBars.push(1);
+			}
+			else{
+				this.bottomChartBars.push(0);
+			}
+		});
+		this.bottomChart.data.datasets.push({
+			data: this.bottomChartBars,
+			barPercentage: 1,
+			categoryPercentage: 1,
+			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
+		});
+		this.bottomChart.data.labels = this.labels;
+		this.bottomChart.update();
+	}
+
+	#setPosition(chart){
+		this.visibleArea.min = chart.options.scales.x.min;
+		this.visibleArea.max = chart.options.scales.x.max;
+	}
+
+	// Syncs position of both charts
+	syncPosition(){
+		this.topChart.options.scales.x.min = this.visibleArea.min;
+		this.bottomChart.options.scales.x.min = this.visibleArea.min;
+		this.topChart.options.scales.x.max = this.visibleArea.max;
+		this.bottomChart.options.scales.x.max = this.visibleArea.max;
+		this.topChart.update();
+		this.bottomChart.update();
+		this.navigationRange.setValues(this.visibleArea.min,this.visibleArea.max);
+	}
+
+	/*
+	Method renders threshold line into the chart
+	*/
+	getThresholdAnnotation(threshold) {
+		return {
+			annotations: {
+				tresholdLine: {
+					// Indicates the type of annotation
+					type: 'line',
+					yMin: this.threshold,
+					yMax: this.threshold,
+					backgroundColor: 'rgba(255, 99, 132, 0.25)',
+					borderDash: [5, 15]
+				}
+			}
+		}
+	}
+
+	//Next button clicked
+	chartNextStep(){
+		if(true){ // to do bounds
+			this.visibleArea.min += 10;
+			this.visibleArea.max += 10;
+			this.syncPosition();
+		}
+	}
+
+	//Prev button clicked
+	chartPrevStep(){
+		if (true) { // TO DO bounds !!!!!!
+			if(true){ // to do bounds
+				this.visibleArea.min -= 10;
+				this.visibleArea.max -= 10;
+				this.syncPosition();
+			}
+		}
+	}
+
+	//changes charts position on the x axis to specific value
+	//if curr pos is x.min = 10 and x.max = 20 and we call moveChart(chart, 43)
+	//then the position will change to x.min = 43 and x.max = 53
+	moveChart(chart, x){
+		let step = chart.options.scales.x.max - chart.options.scales.x.min;
+		chart.options.scales.x.min = x;
+		chart.options.scales.x.max = x + step;
 		chart.update();
 	}
+
+	// synchronizes highlith (hover effect on both charts)
+	syncHighlight(event, elemets){
+		elemets.forEach( e => {
+			this.topChart.setActiveElements([
+				{
+					datasetIndex: 1,
+					index: e.index
+				}
+			]);
+			this.bottomChart.setActiveElements([
+				{
+					datasetIndex: 0,
+					index: e.index
+				}
+			]);
+			this.topChart.update();
+			this.bottomChart.update();
+		});
+	}
 }
 
-/*
-* TODO
-	change highlight color depending on the value
-*/
+// usage
+let testData = new DataChart();
+await testData.fetchCsvFile('output_last/avg_PB1-F2.csv');
+testData.init(document.getElementById('testDiv'));
+
+// adding extra dataset on top
+let x = new Dataset();
+x.label = 'Custom dataset';
+x.borderColor = 'rgb(255,0,0)';
+x.type = 'line';
+x.data = [0,0.5,0.2,0,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.2];
+
+testData.addDataset(x);
+
+
+
