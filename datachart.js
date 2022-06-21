@@ -140,7 +140,7 @@ export class DataChart{
 						mode: 'x',
 						onZoom: () => {
 							this.#setPosition(this.topChart);
-							this.syncPosition();
+							this.#syncPosition();
 						}
 					},
 					pan: {
@@ -149,11 +149,11 @@ export class DataChart{
 						threshold: 0,
 						onPan: () => {
 							this.#setPosition(this.topChart);
-							this.syncPosition();
+							this.#syncPosition();
 						}
 					}
 				},
-				annotation: this.getThresholdAnnotation(this.threshold),
+				annotation: this.#getThresholdAnnotation(this.threshold),
 				tooltip:{
 					cornerRadius: 0
 				}
@@ -374,12 +374,12 @@ export class DataChart{
 		this.controls.prevButton.addEventListener('click',() => this.chartPrevStep());
 		this.controls.nextButton.addEventListener('click',() => this.chartNextStep());
 
-		this.create();
+		this.#create();
 		this.#initBottomChartBars();
 	}
 
 	/// main method
-	create(){
+	#create(){
 		// create charts
 		this.topChart = new Chart(this.#topChartCanvas, this.topChartConfig);
 		this.bottomChart = new Chart(this.#bottomChartCanvas, this.bottomChartConfig);
@@ -395,7 +395,7 @@ export class DataChart{
 			onChange: () => {
 				this.visibleArea.min = this.navigationRange.values.start;
 				this.visibleArea.max = this.navigationRange.values.end;
-				this.syncPosition();
+				this.#syncPosition();
 			}
 		});
 		this.controls.thresholdRange.addEventListener('input', (e) => {
@@ -460,7 +460,7 @@ export class DataChart{
 	}
 
 	// Syncs position of both charts
-	syncPosition(){
+	#syncPosition(){
 		this.topChart.options.scales.x.min = this.visibleArea.min;
 		this.bottomChart.options.scales.x.min = this.visibleArea.min;
 		this.topChart.options.scales.x.max = this.visibleArea.max;
@@ -473,7 +473,7 @@ export class DataChart{
 	/*
 	Method renders threshold line into the chart
 	*/
-	getThresholdAnnotation(threshold) {
+	#getThresholdAnnotation(threshold) {
 		return {
 			annotations: {
 				tresholdLine: {
@@ -488,12 +488,19 @@ export class DataChart{
 		}
 	}
 
+	// updates both top and bottom chart
+	// useful when changing config 
+	update(){
+		this.topChart.update();
+		this.bottomChart.update();
+	}
+
 	//Next button clicked
 	chartNextStep(){
 		if(true){ // to do bounds
 			this.visibleArea.min += 10;
 			this.visibleArea.max += 10;
-			this.syncPosition();
+			this.#syncPosition();
 		}
 	}
 
@@ -503,7 +510,7 @@ export class DataChart{
 			if(true){ // to do bounds
 				this.visibleArea.min -= 10;
 				this.visibleArea.max -= 10;
-				this.syncPosition();
+				this.#syncPosition();
 			}
 		}
 	}
@@ -516,6 +523,18 @@ export class DataChart{
 		chart.options.scales.x.min = x;
 		chart.options.scales.x.max = x + step;
 		chart.update();
+	}
+
+	// moves chart to specific position on x axis
+	moveChartTo(min, max){
+		this.topChart.options.scales.x.min = min;
+		this.topChart.options.scales.x.max = max;
+		this.bottomChart.options.scales.x.min = min;
+		this.bottomChart.options.scales.x.max = max;
+
+		this.navigationRange.setValues(min,max);
+
+		this.update();
 	}
 
 	// synchronizes highlith (hover effect on both charts)
@@ -537,6 +556,36 @@ export class DataChart{
 			this.bottomChart.update();
 		});
 	}
+
+	// sets visibility of dataset
+	setDatasetVisibility(index, visible = false){
+		if(index >= 0 && index <= this.datasets.length){
+			this.topChart.setDatasetVisibility(index, visible);
+			this.topChart.update();
+		}
+		else{
+			throw "index out of range";
+		}
+	}
+
+	// sets active (highlighted) element
+	setActiveElement(datasetIndex, valueIndex){
+		this.topChart.setActiveElements([
+			{
+				datasetIndex: datasetIndex,
+				index: valueIndex
+			}
+		]);
+		this.bottomChart.setActiveElements([
+			{
+				datasetIndex: 0,
+				index: valueIndex
+			}
+		]);
+		this.topChart.update();
+		this.bottomChart.update();
+	}
+
 }
 
 

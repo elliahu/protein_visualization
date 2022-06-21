@@ -11,8 +11,17 @@ x.label = 'Custom dataset';
 x.borderColor = 'rgb(255,0,0)';
 x.type = 'line';
 x.borderDash = [10,5];
-x.data = [0,0.5,0.2,0,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.2];
+x.data = [0,0.5,0.2,0,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.2,0,0.5,0.2,0,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.20,0.5,0.2];
 testData.addDataset(x);
+
+// helpers
+/*
+window.setTimeout(()=>{
+    testData.moveChartTo(10,20);
+    testData.setActiveElement(1,10);
+    testData.setDatasetVisibility(2, false);
+},1500);
+*/
 
 
 // avg_PB1-F2
