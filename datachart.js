@@ -101,7 +101,7 @@ export class DataChart{
 				mode: 'index'
 			},
 			animation:{
-				duration: 200
+				duration: 150
 			},
 			responsive: true,
 			scales: {
@@ -153,7 +153,10 @@ export class DataChart{
 						}
 					}
 				},
-				annotation: this.getThresholdAnnotation(this.threshold)
+				annotation: this.getThresholdAnnotation(this.threshold),
+				tooltip:{
+					cornerRadius: 0
+				}
 			},
 			maintainAspectRatio: false,
 		}
