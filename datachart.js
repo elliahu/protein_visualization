@@ -98,11 +98,12 @@ export class DataChart{
 			},
 			barPercentage: 1,
 			interaction: {
-				mode: 'index'
+				mode: 'nearest'
 			},
 			animation:{
 				duration: 150
 			},
+			animation:false,
 			responsive: true,
 			scales: {
 				x: {
