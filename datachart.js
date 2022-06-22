@@ -342,7 +342,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
     let annotating = false;
 
     const cursorOpts = {
-        lock: true,
+        lock: false,
         sync: {
             key: mooSync.key,
             setSeries: true,
@@ -355,35 +355,6 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             setScale: false,
             x:true,
             y:false
-        },
-        bind: {
-            mousedown: (u, targ, handler) => {
-                return e => {
-                    if (e.button == 0) {
-                        handler(e);
-
-                        if(e.ctrlKey){
-                            annotating = true;
-                            // switch select region to annotation color
-                            u.root.querySelector(".u-select").classList.add("u-annotate");
-                        }
-                        
-
-                    }
-                }
-            },
-            mouseup: (u, targ, handler) => {
-                return e => {
-                    if (e.button == 0) {
-                        if (annotating) {
-                            // fire original handler
-                            handler(e);
-                        }
-                        else
-                            handler(e);
-                    }
-                };
-            }
         },
     };
 
@@ -433,7 +404,14 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             }
         ],
         axes: [
-            {},
+            {
+                values: (u, vals, space) => {
+                    console.log(u);
+                    return vals.map(v => v);
+                    //return  vals.map(v => labels[v])
+                },
+                //space: ()=> 15
+            },
             {
                 values: (u, vals, space) => vals.map(v => +v.toFixed(1) + ""),
             },
@@ -479,14 +457,12 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
                     ctx.restore();
                 }
             ],
-            setSelect: [
+            setSelect:[
                 (u) => {
                     let _lIdx = u.posToIdx(u.select.left);
                     let _rIdx = u.posToIdx(u.select.left + u.select.width);
 
-                    console.log('region was selected');
-                    console.log("["+ _lIdx +', ' + _rIdx +"]");
-                    annotating = false;
+                    console.log(`region selected [${_lIdx},${_rIdx}]`);
                 }
             ]
         },
