@@ -1,35 +1,51 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>PERMED chart demo</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <!--ChartsJS-->
-    <script src="./node_modules/chart.js/dist/chart.js"></script>
-    <script src="./node_modules/hammerjs/hammer.js"></script>
-    <script src="./node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.js"></script>
-    <script src="./node_modules/chartjs-plugin-annotation/dist/chartjs-plugin-annotation.js"></script>
+		<link rel="stylesheet" href="../dist/uPlot.min.css">
+		<style>
+			.uplot {
+				display: inline-block;
+				vertical-align: top;
+			}
+			.u-select {
+				pointer-events: all;
+				cursor: grabbing;
+			}
 
-    <!-- Slider -->
-    <link rel="stylesheet" href="./node_modules/rslider/src/css/rSlider.css">
-    <script src="./node_modules/rslider/src/js/rSlider.js"></script>
+			.u-grip-l {
+				position: absolute;
+				left: -5px;
+				width: 10px;
+				height: 100%;
+				background: #FF715B;
+				cursor: ew-resize;
+			}
 
-    <!--Scripts-->
-    <script type="module" src="datachart.js"></script>
+			.u-grip-r {
+				position: absolute;
+				right: -5px;
+				width: 10px;
+				height: 100%;
+				background: #2F52E0;
+				cursor: ew-resize;
+			}
+		</style>
+	</head>
+	<body>
+		<!--<script src="../dist/uPlot.iife.js"></script>-->
 
-    <!--Stylesheets-->
-    <link rel="stylesheet" href="style.css">
+		<script src="./datachart.js" type="module"></script>
+		<script src="./main.js" type="module"></script>
 
-    <!--User scripts-->
-    <script type="module" src="main.js"></script>
-
-    <title>PERMED chart demo</title>
-</head>
-<body style="margin:0px;">
-
-    
-    <div id="testDiv"></div>
-
-</body>
+		<h1>Working on:</h1>
+		<ul>
+			<li>Mouse drag sync (working on single chart, currently disabled)</li>
+			<li>Mousewheel zoom sync (working on single chart, currently disabled)</li>
+			<li>Ranger selector size is not changed when window size is changed (it's close)</li>
+		</ul>
+	</body>
 </html>

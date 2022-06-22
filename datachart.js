@@ -1,516 +1,692 @@
-// Dataset is used to encapsulate displayed values
-export class Dataset{
-	type = 'line';
-	filename = '';
-	backgroundColor = 'rgba(0,0,0,1)';
-	borderColor = 'rgba(0,0,0,1)';
-	hoverBackgroundColor = 'rgba(255, 184, 0,0.5)';
-	borderDash = [];
-	tension = 0.5;
-	barPercentage = 1;
-	categoryPercentage = 1;
-	data = [];
-	label = 'hidden';
+import uPlot from './dist/uPlot.esm.js';
+
+let xs = Array.from(Array(500).keys())
+let vals = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+
+let r = xs.map((t, i) => vals[Math.floor(Math.random() * vals.length)])
+
+let data = [
+    xs,
+    r,
+    r,
+    xs.map((t, i) => vals[Math.floor(Math.random() * vals.length)]),
+]
+
+let threshold = 0.5;
+let labels = [];
+
+/// Plugins (unused)
+function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {}) {
+    outerRadius *= devicePixelRatio;
+    innerRadius *= devicePixelRatio;
+
+    function drawStar(ctx, cx, cy) {
+        let rot = Math.PI / 2 * 3;
+        let x = cx;
+        let y = cy;
+        let step = Math.PI / spikes;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerRadius);
+
+        for (let i = 0; i < spikes; i++) {
+            x = cx + Math.cos(rot) * outerRadius;
+            y = cy + Math.sin(rot) * outerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+
+            x = cx + Math.cos(rot) * innerRadius;
+            y = cy + Math.sin(rot) * innerRadius;
+            ctx.lineTo(x, y);
+            rot += step;
+        }
+
+        ctx.lineTo(cx, cy - outerRadius);
+        ctx.closePath();
+    }
+
+    function drawPointsAsStars(u, i, i0, i1) {
+        let { ctx } = u;
+        let { _stroke, scale } = u.series[i];
+
+        ctx.save();
+
+        ctx.fillStyle = _stroke;
+
+        let j = i0;
+
+        while (j <= i1) {
+            let val = u.data[i][j];
+            let cx = Math.round(u.valToPos(u.data[0][j], 'x', true));
+            let cy = Math.round(u.valToPos(val, scale, true));
+            drawStar(ctx, cx, cy);
+            ctx.fill();
+            j++;
+        };
+
+        ctx.restore();
+    }
+
+    return {
+        opts: (u, opts) => {
+            opts.series.forEach((s, i) => {
+                if (i > 0) {
+                    uPlot.assign(s, {
+                        points: {
+                            show: drawPointsAsStars,
+                        }
+                    });
+                }
+            });
+        }
+    };
 }
 
-// represents the top row of chart controls
-export class DataChartControls{
-	thresholdRange;
-	thresholdInput;
-	prevButton;
-	nextButton;
+function wheelZoomPlugin(opts) {
+    let factor = opts.factor || 0.75;
 
-	create(prevText = 'Prev', nextText = 'Next'){
-		this.#createThresholdRange();
-		this.#createThresholdInput();
-		this.#createPrevButton(prevText);
-		this.#createNextButton(nextText);
-	}
+    let xMin, xMax, yMin, yMax, xRange, yRange;
 
-	#createThresholdRange(){
-		this.thresholdRange = document.createElement('input');
-		this.thresholdRange.type = 'range';
-		this.thresholdRange.min = 0;
-		this.thresholdRange.max = 1;
-		this.thresholdRange.step = .01;
-	}
+    function clamp(nRange, nMin, nMax, fRange, fMin, fMax) {
+        if (nRange > fRange) {
+            nMin = fMin;
+            nMax = fMax;
+        }
+        else if (nMin < fMin) {
+            nMin = fMin;
+            nMax = fMin + nRange;
+        }
+        else if (nMax > fMax) {
+            nMax = fMax;
+            nMin = fMax - nRange;
+        }
 
-	#createThresholdInput(){
-		this.thresholdInput = document.createElement('input');
-		this.thresholdInput.type = 'number';
-		this.thresholdInput.step = .05;
-	}
+        return [nMin, nMax];
+    }
 
-	#createPrevButton(prevText){
-		this.prevButton = document.createElement('button');
-		this.prevButton.innerHTML = prevText;
-	}
+    return {
+        hooks: {
+            ready: u => {
+                xMin = u.scales.x.min;
+                xMax = u.scales.x.max;
+                yMin = u.scales.y.min;
+                yMax = u.scales.y.max;
 
-	#createNextButton(nextText){
-		this.nextButton = document.createElement('button');
-		this.nextButton.innerHTML = nextText;
-	}
+                xRange = xMax - xMin;
+                yRange = yMax - yMin;
 
+                let over = u.over;
+                let rect = over.getBoundingClientRect();
+
+                // wheel drag pan
+                over.addEventListener("mousedown", e => {
+                    if (e.button == 1) {
+                        //	plot.style.cursor = "move";
+                        e.preventDefault();
+
+                        let left0 = e.clientX;
+                        //	let top0 = e.clientY;
+
+                        let scXMin0 = u.scales.x.min;
+                        let scXMax0 = u.scales.x.max;
+
+                        let xUnitsPerPx = u.posToVal(1, 'x') - u.posToVal(0, 'x');
+
+                        function onmove(e) {
+                            e.preventDefault();
+
+                            let left1 = e.clientX;
+                            //	let top1 = e.clientY;
+
+                            let dx = xUnitsPerPx * (left1 - left0);
+
+                            u.setScale('x', {
+                                min: scXMin0 - dx,
+                                max: scXMax0 - dx,
+                            });
+                        }
+
+                        function onup(e) {
+                            document.removeEventListener("mousemove", onmove);
+                            document.removeEventListener("mouseup", onup);
+                        }
+
+                        document.addEventListener("mousemove", onmove);
+                        document.addEventListener("mouseup", onup);
+                    }
+                });
+
+                // wheel scroll zoom
+                over.addEventListener("wheel", e => {
+                    e.preventDefault();
+
+                    let { left, top } = u.cursor;
+
+                    let leftPct = left / rect.width;
+                    let btmPct = 1 - top / rect.height;
+                    let xVal = u.posToVal(left, "x");
+                    let yVal = u.posToVal(top, "y");
+                    let oxRange = u.scales.x.max - u.scales.x.min;
+                    let oyRange = u.scales.y.max - u.scales.y.min;
+
+                    let nxRange = e.deltaY < 0 ? oxRange * factor : oxRange / factor;
+                    let nxMin = xVal - leftPct * nxRange;
+                    let nxMax = nxMin + nxRange;
+                    [nxMin, nxMax] = clamp(nxRange, nxMin, nxMax, xRange, xMin, xMax);
+
+                    let nyRange = e.deltaY < 0 ? oyRange * factor : oyRange / factor;
+                    let nyMin = yVal - btmPct * nyRange;
+                    let nyMax = nyMin + nyRange;
+                    [nyMin, nyMax] = clamp(nyRange, nyMin, nyMax, yRange, yMin, yMax);
+
+                    u.batch(() => {
+                        u.setScale("x", {
+                            min: nxMin,
+                            max: nxMax,
+                        });
+
+                        u.setScale("y", {
+                            min: nyMin,
+                            max: nyMax,
+                        });
+                    });
+                });
+            }
+        }
+    };
 }
 
-export class DataChart{
-	// public fields
-	labels = [];
-	datasets = [];
-	controls = new DataChartControls();
-	topChart;
-	navigationRange;
+function renderStatsPlugin({ textColor = 'red', font } = {}) {
+    font = font ?? `${Math.round(12 * devicePixelRatio)}px Arial`;
 
-	settings = {
-		nextPrevStep : 1,
-		nextMultiplier : 50,
-		visibleStep : 10,
-		btnhold : false,
-		tension : 0.5,
-		bottomChartHeight: 75
-	}
+    let startRenderTime;
 
-	threshold = 0.5;
+    function setStartTime() {
+        startRenderTime = Date.now();
+    }
 
-	highlightIndex = null;
+    function drawStats(u) {
+        let { ctx } = u;
+        let { left, top, width, height } = u.bbox;
+        let displayText = "Time to Draw: " + (Date.now() - startRenderTime) + "ms";
 
-	visibleArea = {
-		min: 1,
-		max: 10
-	};
+        ctx.save();
 
-	// configs
-	topChartConfig = {
-		data: {
-			labels: this.labels,
-			datasets: []
-		},
-		options: {
-			onHover: (event, elements) => {
-				//this.syncHighlight(event,elements);
-			},
-			barPercentage: 1,
-			interaction: {
-				mode: 'point'
-			},
-			animation:{
-				duration: 150
-			},
-			animation:false,
-			responsive: true,
-			scales: {
-				x: {
-					min: this.visibleArea.min,
-					max: this.visibleArea.max,
-					position:{
-						y: 0
-					},
-				},
-				y:{
-					min: -.5,
-					max: 1,
-					ticks:{
-						callback: function(value,index,ticks){
-							return (value >= 0)? this.getLabelForValue(value) : null;
-						}
-					},
-				}
-			},
-			transitions: {
-				active:{
-					animation:{
-						duration :0
-					}
-				}
-			},
-			plugins: {
-				legend: {
-					labels: {
-					  filter: function(item, chart) {
-						return !item.text.includes('hidden');
-					  }
-					}
-				  },
-				zoom: {
-					zoom: {
-						wheel: {
-							enabled: true
-						},
-						pinch: {
-							enabled: true
-						},
-						mode: 'x',
-						onZoom: () => {
-							this.#setPosition(this.topChart);
-							//this.#syncPosition();
-						},
-						onZoomComplete: ()=>{
-							//this.#syncPosition();
-						}
-					},
-					pan: {
-						enabled: true,
-						mode: 'x',
-						threshold: 0,
-						onPan: () => {
-							this.#setPosition(this.topChart);
-							//this.#syncPosition();
-						},
-						onPanComplete: () =>  {
-							//this.#syncPosition();
-						}
-					}
-				},
-				annotation: {
-					animations: false,
-					common: {
-						drawTime: 'afterDraw'
-					},
-					annotations:{
-						thresholdAnnotation: this.#getThresholdAnnotation(this.threshold),
-					}
-				},
-				tooltip:{
-					cornerRadius: 0
-				}
-			},
-			maintainAspectRatio: false,
-		}
-	};
+        ctx.font = font;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(displayText, left + 10, top + 10);
 
-	// private fields
-	#topChartCanvas;
+        ctx.restore();
+    }
 
-	/// fetches data in CSV format using get request
-	async fetchCsvFile(path, separator = ';'){
-		// load data
-		let data = await fetch(path);
-		if(!data.ok){
-			throw `Could not fetch ${path} file!`;
-		}
-		let text = await data.text();
-
-		// parse text line by line
-		let lines = text.split('\n');
-		if(lines.length > 0){
-			// empty instace of Dataset
-			let dataset = new Dataset();
-			dataset.filename = path;
-
-			// for each line
-			lines.forEach((line, index) => {
-				line = line.trim();
-				let cells = line.split(separator);
-				if(cells.length > 0){
-
-					// expected format:
-					// LABEL separator ASA ...
-					this.labels.push(cells[0]);
-					dataset.data.push(cells[1]);
-
-				}
-				else{
-					throw `File ${path} is not in the correct CSV format`;
-				}
-			});
-
-			// finally, push the newly created dataset to the datasets array
-			this.datasets.push(dataset);
-			this.topChartConfig.data.datasets.push({
-				type: 'line',
-				data: dataset.data,
-				backgroundColor: dataset.backgroundColor,
-				borderColor: dataset.borderColor,
-				tension: dataset.tension,
-				fill: {
-					backgroundColor: 'rgba(0,0,0,0)',
-					target: { value: this.threshold },
-					above: 'rgba(236, 212, 68,0.5)',
-					below: 'rgba(0,0,0,0)'
-				},
-				label: 'Aggregation line'
-			});
-			this.topChartConfig.data.datasets.push({
-				type: 'bar',
-				data: dataset.data,
-				barPercentage: dataset.barPercentage,
-				categoryPercentage: dataset.categoryPercentage,
-				hoverBackgroundColor: dataset.hoverBackgroundColor,
-				label: 'Aggregation value'
-			});
-		}
-		else{
-			throw `File ${path} is empty`;
-		}
-	}
-
-	addDataset(dataset){
-		this.datasets.push(dataset);
-		let dataObj = {
-			type: dataset.type,
-			data: dataset.data,
-			label: dataset.label,
-			borderColor: dataset.borderColor,
-			backgroundColor:dataset.backgroundColor,
-			hoverBackgroundColor: dataset.hoverBackgroundColor
-		};
-
-		if(dataset.type === 'bar'){
-			dataObj.barPercentage = dataset.barPercentage;
-			dataObj.categoryPercentage = dataset.categoryPercentage;
-		}
-
-		if(dataset.type === 'line'){
-			dataObj.tension = dataset.tension;
-			dataObj.borderDash = dataset.borderDash;
-		}
-
-		this.topChartConfig.data.datasets.push(dataObj);
-		
-		if(this.datasets.length - 1 > 0){
-			this.topChart.update();
-		}
-		
-	}
-
-	/// Creates the chart and containers
-	init(container){
-		// create controls
-		let controlsContainer = document.createElement('div');
-		controlsContainer.id = 'dataChartControls';
-		this.controls.create();
-		controlsContainer.appendChild(this.controls.thresholdRange);
-		this.controls.thresholdRange.value = this.threshold;
-		this.controls.thresholdInput.value = this.threshold;
-		controlsContainer.appendChild(this.controls.thresholdInput);
-		controlsContainer.appendChild(this.controls.prevButton);
-		controlsContainer.appendChild(this.controls.nextButton);
-		container.appendChild(controlsContainer);
-
-		// create chart containers
-		let topChartContainer = document.createElement('div');
-		topChartContainer.id = 'dataChartTopChartContainer';
-
-		// create canvases for the charts
-		let topChartCanvas = document.createElement('canvas');
-		topChartCanvas.id = 'dataChartCanvas1';
-		this.#topChartCanvas = topChartCanvas;
-		topChartContainer.appendChild(topChartCanvas);
-
-		// append chart containers to main container
-		container.appendChild(topChartContainer);
-
-		// navigation range
-		let navContainer = document.createElement('div');
-		navContainer.id = 'dataChartNavContainer';
-		let navRange = document.createElement('input');
-		navRange.type = 'range';
-		navRange.id = 'navRange';
-		navContainer.appendChild(navRange);
-		container.appendChild(navContainer);
-
-		// asign callbacks
-		this.controls.prevButton.addEventListener('click',() => this.chartPrevStep());
-		this.controls.nextButton.addEventListener('click',() => this.chartNextStep());
-
-		this.#create();
-		this.#renderAPRs();
-	}
-
-	/// main method
-	#create(){
-		// create charts
-		this.topChart = new Chart(this.#topChartCanvas, this.topChartConfig);
-		//create range slider
-		this.navigationRange = new rSlider({
-			target: '#navRange',
-			values: Array.from(Array(this.labels.length).keys()),
-			range: true,
-			tooltip: true,
-			scale: true,
-			labels: false,
-			set: [0, this.settings.visibleStep],
-			onChange: () => {
-				this.visibleArea.min = this.navigationRange.values.start;
-				this.visibleArea.max = this.navigationRange.values.end;
-				this.#syncPosition();
-			}
-		});
-		this.controls.thresholdRange.addEventListener('input', (e) => {
-			this.#onThresholdRangeChange(e.target.value);
-		});
-		this.controls.thresholdInput.addEventListener('change', (e) => {
-			this.threshold = e.target.value;
-			this.controls.thresholdRange.value = e.target.value;
-			this.#onThresholdRangeChange(this.threshold);
-		});
-	}
-
-	/// called when threshold range is moved
-	#onThresholdRangeChange(threshold){
-		this.threshold = this.controls.thresholdRange.value;
-		this.controls.thresholdInput.value = this.controls.thresholdRange.value;
-
-		//change color background
-		//TO BE CHANGED
-		this.topChart.options.animation = false;
-		this.topChart.data.datasets[0].fill.target.value = this.threshold;
-
-		//change horizontal line
-		this.topChart.options.plugins.annotation.annotations.thresholdAnnotation.yMin = this.threshold;
-		this.topChart.options.plugins.annotation.annotations.thresholdAnnotation.yMax = this.threshold;
-
-
-		this.topChart.update();
-		this.topChart.options.animation = true;
-		// rerender bottom boxes
-		this.#renderAPRs();
-	}
-
-
-	// creates bars in bottom chart
-	#renderAPRs(){
-
-		for(let i = 0; i < this.labels.length; i++){
-			this.topChartConfig.options.plugins.annotation.annotations['APRbox' + i] = null;
-			if(this.datasets[0].data[i] > this.threshold)
-				this.topChartConfig.options.plugins.annotation.annotations['APRbox' + i] = {
-					type: 'box',
-					xMin: i -.5,
-					xMax: i + .5,
-					yMin: -.35,
-					yMax: -.25,
-					backgroundColor: 'rgba(255, 184, 0,0.5)',
-					borderColor: 'rgba(0, 0, 0,0)',
-				}
-		}
-
-		this.topChart.update();
-	}
-
-	#setPosition(chart){
-		this.visibleArea.min = chart.options.scales.x.min;
-		this.visibleArea.max = chart.options.scales.x.max;
-	}
-
-	// Syncs position of both charts
-	#syncPosition(){
-		this.navigationRange.setValues(this.visibleArea.min,this.visibleArea.max);
-	}
-
-	/*
-	Method renders threshold line into the chart
-	*/
-	#getThresholdAnnotation(threshold) {
-		return {
-			// Indicates the type of annotation
-			type: 'line',
-			yMin: this.threshold,
-			yMax: this.threshold,
-			backgroundColor: 'rgba(255, 99, 132, 0.25)',
-			borderDash: [10, 15]
-		}
-	}
-
-	// updates both top and bottom chart
-	// useful when changing config 
-	update(){
-		this.topChart.update();
-		this.bottomChart.update();
-	}
-
-	//Next button clicked
-	chartNextStep(){
-		if(true){ // to do bounds
-			this.visibleArea.min += 10;
-			this.visibleArea.max += 10;
-			this.#syncPosition();
-		}
-	}
-
-	//Prev button clicked
-	chartPrevStep(){
-		if (true) { // TO DO bounds !!!!!!
-			if(true){ // to do bounds
-				this.visibleArea.min -= 10;
-				this.visibleArea.max -= 10;
-				this.#syncPosition();
-			}
-		}
-	}
-
-	//changes charts position on the x axis to specific value
-	//if curr pos is x.min = 10 and x.max = 20 and we call moveChart(chart, 43)
-	//then the position will change to x.min = 43 and x.max = 53
-	moveChart(chart, x){
-		let step = chart.options.scales.x.max - chart.options.scales.x.min;
-		chart.options.scales.x.min = x;
-		chart.options.scales.x.max = x + step;
-		chart.update();
-	}
-
-	// moves chart to specific position on x axis
-	moveChartTo(min, max){
-		this.topChart.options.scales.x.min = min;
-		this.topChart.options.scales.x.max = max;
-		this.bottomChart.options.scales.x.min = min;
-		this.bottomChart.options.scales.x.max = max;
-
-		this.navigationRange.setValues(min,max);
-
-		this.update();
-	}
-
-	// synchronizes highlith (hover effect on both charts)
-	syncHighlight(event, elemets){
-		for(let i = 0; i < elemets.length; i++){
-			let e = elemets[i];
-			this.topChart.setActiveElements([
-				{
-					datasetIndex: 1,
-					index: e.index
-				}
-			]);
-			this.bottomChart.setActiveElements([
-				{
-					datasetIndex: 0,
-					index: e.index
-				}
-			]);
-			this.topChart.update();
-			this.bottomChart.update();
-		}
-	}
-
-	// sets visibility of dataset
-	setDatasetVisibility(index, visible = false){
-		if(index >= 0 && index <= this.datasets.length){
-			this.topChart.setDatasetVisibility(index, visible);
-			this.topChart.update();
-		}
-		else{
-			throw "index out of range";
-		}
-	}
-
-	// sets active (highlighted) element
-	setActiveElement(datasetIndex, valueIndex){
-		this.topChart.setActiveElements([
-			{
-				datasetIndex: datasetIndex,
-				index: valueIndex
-			}
-		]);
-		this.bottomChart.setActiveElements([
-			{
-				datasetIndex: 0,
-				index: valueIndex
-			}
-		]);
-		this.topChart.update();
-		this.bottomChart.update();
-	}
-
+    return {
+        hooks: {
+            drawClear: setStartTime,
+            draw: drawStats,
+        }
+    };
 }
 
+
+function prepareData(data, threshold) {
+    let _data = [];
+    for (let i = 0; i < data.length; i++) {
+        (data[i] > threshold) ? _data.push(1) : _data.push(0);
+    }
+    return _data;
+}
+
+function getWindowSize(heighLimit = 400) {
+    return {
+        width: window.innerWidth - 100,
+        //height: window.innerHeight - 200, // relative
+        height: heighLimit // absolute height
+    }
+}
+
+const { linear, spline, stepped, bars } = uPlot.paths;
+const _bars60_100 = bars({ size: [0.6, 100] });
+const _bars80_100 = bars({ size: [0.8, 100] });
+const _bars90_100 = bars({ size: [0.9, 100] });
+const _bars100_100 = bars({ size: [1.0, 100] });
+
+
+function makeChart(data,element = document.body, {enableControls = true} = {}) {
+    // Sync
+    let mooSync = uPlot.sync("moo");
+
+    let synced = true;
+
+    let syncedUpDown = true;
+
+    function upDownFilter(type) {
+        return syncedUpDown || (type != "mouseup" && type != "mousedown");
+    }
+
+    const matchSyncKeys = (own, ext) => own == ext;
+
+    let uplot2HeightLimit = 100;
+    let rangerHeightLimit = 100;
+
+    // threshold controls
+
+    let chartControls = document.createElement('div');
+    chartControls.id = 'chartControls';
+    element.appendChild(chartControls);
+
+    if(enableControls){
+        // range
+        let thresholdRange = document.createElement('input');
+        thresholdRange.type = 'range';
+        thresholdRange.step = 0.01;
+        thresholdRange.value = threshold;
+        thresholdRange.min = 0;
+        thresholdRange.max = 1;
+
+        thresholdRange.addEventListener('input', function(e){
+            threshold = e.target.value;
+            thresholdInput.value = threshold;
+            uplot1.redraw();
+        });
+        
+        // input
+        let thresholdInput = document.createElement('input');
+        thresholdInput.type = 'number';
+        thresholdInput.step = 0.01;
+        thresholdInput.value = threshold;
+
+        thresholdInput.addEventListener('input', function(e){
+            threshold = e.target.value;
+            thresholdRange.value = threshold;
+            uplot1.redraw();
+        });
+
+        chartControls.appendChild(thresholdRange);
+        chartControls.appendChild(thresholdInput);
+    }
+
+
+    /// RANGER
+
+    let initXmin = 0;
+    let initXmax = 35;
+
+    let doc = document;
+
+    function debounce(fn) {
+        let raf;
+
+        return (...args) => {
+            if (raf)
+                return;
+
+            raf = requestAnimationFrame(() => {
+                fn(...args);
+                raf = null;
+            });
+        };
+    }
+
+    function placeDiv(par, cls) {
+        let el = doc.createElement("div");
+        el.classList.add(cls);
+        par.appendChild(el);
+        return el;
+    }
+
+    function on(ev, el, fn) {
+        el.addEventListener(ev, fn);
+    }
+
+    function off(ev, el, fn) {
+        el.removeEventListener(ev, fn);
+    }
+
+    let x0;
+    let lft0;
+    let wid0;
+
+    const lftWid = { left: null, width: null };
+    const minMax = { min: null, max: null };
+
+    function update(newLft, newWid) {
+        let newRgt = newLft + newWid;
+        let maxRgt = uRanger.bbox.width / devicePixelRatio;
+
+        if (newLft >= 0 && newRgt <= maxRgt) {
+            select(newLft, newWid);
+            zoom(newLft, newWid);
+        }
+    }
+
+    function select(newLft, newWid) {
+        lftWid.left = newLft;
+        lftWid.width = newWid;
+        uRanger.setSelect(lftWid, false);
+    }
+
+    function zoom(newLft, newWid) {
+        minMax.min = uRanger.posToVal(newLft, 'x');
+        minMax.max = uRanger.posToVal(newLft + newWid, 'x');
+        uplot1.setScale('x', minMax);
+        uplot2.setScale('x', minMax);
+    }
+
+    function bindMove(e, onMove) {
+        x0 = e.clientX;
+        lft0 = uRanger.select.left;
+        wid0 = uRanger.select.width;
+
+        const _onMove = debounce(onMove);
+        on("mousemove", doc, _onMove);
+
+        const _onUp = e => {
+            off("mouseup", doc, _onUp);
+            off("mousemove", doc, _onMove);
+            //viaGrip = false;
+        };
+        on("mouseup", doc, _onUp);
+
+        e.stopPropagation();
+    }
+
+    const rangerOpts = {
+        title: "Ranger",
+        ...getWindowSize(rangerHeightLimit),
+        cursor: {
+            x: false,
+            y: false,
+            points: {
+                show: false,
+            },
+            drag: {
+                setScale: false,
+                setSelect: true,
+                x: true,
+                y: false,
+            },
+        },
+        legend: {
+            show: false
+        },
+        scales: {
+            x: {
+                time: false,
+            },
+        },
+        series: [
+            {},
+            {
+                stroke: "red",
+                fill: "rgba(255, 0, 0, 0.3)",
+                paths: _bars100_100,
+                points: { show: false },
+            }
+        ],
+        hooks: {
+            ready: [
+                uRanger => {
+                    let left = Math.round(uRanger.valToPos(initXmin, 'x'));
+                    let width = Math.round(uRanger.valToPos(initXmax, 'x')) - left;
+                    let height = uRanger.bbox.height / devicePixelRatio;
+                    uRanger.setSelect({ left, width, height }, false);
+
+                    const sel = uRanger.root.querySelector(".u-select");
+
+                    on("mousedown", sel, e => {
+                        bindMove(e, e => update(lft0 + (e.clientX - x0), wid0));
+                    });
+
+                    on("mousedown", placeDiv(sel, "u-grip-l"), e => {
+                        bindMove(e, e => update(lft0 + (e.clientX - x0), wid0 - (e.clientX - x0)));
+                    });
+
+                    on("mousedown", placeDiv(sel, "u-grip-r"), e => {
+                        bindMove(e, e => update(lft0, wid0 + (e.clientX - x0)));
+                    });
+                }
+            ],
+            setSelect: [
+                uRanger => {
+                    zoom(uRanger.select.left, uRanger.select.width);
+                }
+            ],
+        },
+        axes: [
+            {},
+            {
+                values: (u, vals, space) => "",
+            },
+        ],
+    };
+
+    let uRanger = new uPlot(rangerOpts, data, element);
+
+
+
+    const cursorOpts = {
+        lock: true,
+        focus: {
+            prox: 16,
+        },
+        sync: {
+            key: mooSync.key,
+            setSeries: true,
+            match: [matchSyncKeys, matchSyncKeys],
+            filters: {
+                pub: upDownFilter,
+            }
+        },
+        drag: {
+            x: false,
+            y: false
+        },
+    };
+
+    const opts = {
+        title: "Aggregation profile",
+        ...getWindowSize(),
+        focus: {
+            alpha: 0.3,
+        },
+        scales: {
+            x: {
+                time: false,
+                min: initXmin,
+                max: initXmax,
+            }
+        },
+        cursor: cursorOpts,
+        select: {
+            over: false,
+        },
+        series: [
+            {
+                label: 'Label',
+            },
+            {
+                label: "Aggregation",
+                value: (u, v) => v == null ? "-" : v + "",
+                stroke: "red",
+                fill: "rgba(255, 0, 0, 0.3)",
+                paths: _bars80_100,
+                points: { show: false },
+            },
+            {
+                label: "Aggregation trend",
+                value: (u, v) => v == null ? "-" : v + "",
+                stroke: "red",
+            },
+            {
+                label: "ASA",
+                value: (u, v) => v == null ? "-" : v + "",
+                stroke: "blue",
+                dash: [10, 5]
+            }
+        ],
+        axes: [
+            {},
+            {
+                values: (u, vals, space) => vals.map(v => +v.toFixed(1) + ""),
+            },
+        ],
+        plugins: [
+            //wheelZoomPlugin({factor: .75}),
+            renderStatsPlugin({ textColor: '#333' }),
+        ],
+        hooks: {
+            drawSeries: [
+                // draw hook for threshold line
+                (u, si) => {
+                    if(si != 1){
+                        return;
+                    }
+                    let ctx = u.ctx;
+
+                    ctx.save();
+
+                    let s  = u.series[si];
+                    let xd = u.data[0];
+                    let yd = u.data[si];
+
+                    let [i0, i1] = s.idxs;
+
+                    let x0 = u.valToPos(xd[i0], 'x', true);
+                    let y0 = u.valToPos(threshold, 'y', true);
+                    let x1 = u.valToPos(xd[i1], 'x', true);
+                    let y1 = u.valToPos(threshold, 'y', true);
+
+                    const offset = (s.width % 2) / 2;
+
+                    ctx.translate(offset, offset);
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#333';
+                    ctx.setLineDash([5, 5]);
+                    ctx.moveTo(x0, y0);
+                    ctx.lineTo(x1, y1);
+                    ctx.stroke();
+
+                    ctx.translate(-offset, -offset);
+
+                    ctx.restore();
+                }
+            ]
+        },
+    };
+
+    let uplot1 = new uPlot(opts, data, element);
+
+    const opts2 = {
+        title: "Sequence",
+        ...getWindowSize(uplot2HeightLimit),
+        cursor: cursorOpts,
+        select: {
+            over: false,
+        },
+        legend:{
+            show: false
+        },
+        scales: {
+            x: {
+                time: false,
+                min: initXmin,
+                max: initXmax,
+            }
+        },
+        series: [
+            {},
+            {
+                label: "APRs",
+                value: (u, v) => v == null ? "-" : v + "",
+                fill: "rgba(255, 0, 0, 0.3)",
+                paths: _bars100_100,
+                points: {
+                    show: false
+                }
+            },
+        ],
+        axes: [
+            {},
+            {
+                values: (u, vals, space) => "",
+            },
+        ],
+        plugins: [
+            //seriesPointsPlugin({ spikes: 6}),
+            //wheelZoomPlugin({factor: .75}),
+        ]
+    };
+
+    let uplot2 = new uPlot(opts2, [data[0], prepareData(data[1], threshold),], element);
+
+    window.addEventListener("resize", e => {
+        uplot1.setSize(getWindowSize());
+        uplot2.setSize(getWindowSize(uplot2HeightLimit));
+        uRanger.setSize(getWindowSize(uplot2HeightLimit));
+    });
+}
+
+async function fetchDataCSV(path, separator = ';') {
+    // load data
+    let data = await fetch(path);
+    if (!data.ok) {
+        throw `Could not fetch ${path} file!`;
+    }
+    let text = await data.text();
+
+    // parse text line by line
+    let lines = text.split('\n');
+    if (lines.length > 0) {
+
+        let _x = [];
+        let _labels = [];
+        let _agg = [];
+        let _asa = [];
+
+        // for each line, to be changed to for instead
+        lines.forEach((line, index) => {
+            line = line.trim();
+            let cells = line.split(separator);
+
+            _x.push(index);
+
+            for (let j = 0; j < cells.length; j++) {
+                let cell = cells[j];
+
+                if (j == 0) {
+                    // first column is label
+                    (cell.length > 0) ? _labels.push(parseFloat(cell)) : _agg.push(null);
+                }
+                else if (j == 1) {
+                    // second column is aggregation vlue
+                    (cell.length > 0) ? _agg.push(parseFloat(cell)) : _agg.push(null);
+                }
+
+                // for now, as there is no third column currenty
+                _asa.push(Math.random());
+
+            }
+        });
+        return {
+            labels: _labels,
+            data: [
+                _x,
+                _agg, // line
+                _agg, // bar
+                _asa
+            ]
+        }
+
+    }
+    else {
+        throw `File ${path} is empty`;
+    }
+}
+
+
+// export
+
+export {fetchDataCSV, makeChart};
 
