@@ -1,21 +1,9 @@
 import uPlot from './dist/uPlot.esm.js';
 
-let xs = Array.from(Array(500).keys())
-let vals = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
-
-let r = xs.map((t, i) => vals[Math.floor(Math.random() * vals.length)])
-
-let data = [
-    xs,
-    r,
-    r,
-    xs.map((t, i) => vals[Math.floor(Math.random() * vals.length)]),
-]
-
 let threshold = 0.5;
 let labels = [];
 
-/// Plugins (unused)
+/// Plugins 
 function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {}) {
     outerRadius *= devicePixelRatio;
     innerRadius *= devicePixelRatio;
@@ -82,120 +70,7 @@ function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {
     };
 }
 
-function wheelZoomPlugin(opts) {
-    let factor = opts.factor || 0.75;
-
-    let xMin, xMax, yMin, yMax, xRange, yRange;
-
-    function clamp(nRange, nMin, nMax, fRange, fMin, fMax) {
-        if (nRange > fRange) {
-            nMin = fMin;
-            nMax = fMax;
-        }
-        else if (nMin < fMin) {
-            nMin = fMin;
-            nMax = fMin + nRange;
-        }
-        else if (nMax > fMax) {
-            nMax = fMax;
-            nMin = fMax - nRange;
-        }
-
-        return [nMin, nMax];
-    }
-
-    return {
-        hooks: {
-            ready: u => {
-                xMin = u.scales.x.min;
-                xMax = u.scales.x.max;
-                yMin = u.scales.y.min;
-                yMax = u.scales.y.max;
-
-                xRange = xMax - xMin;
-                yRange = yMax - yMin;
-
-                let over = u.over;
-                let rect = over.getBoundingClientRect();
-
-                // wheel drag pan
-                over.addEventListener("mousedown", e => {
-                    if (e.button == 1) {
-                        //	plot.style.cursor = "move";
-                        e.preventDefault();
-
-                        let left0 = e.clientX;
-                        //	let top0 = e.clientY;
-
-                        let scXMin0 = u.scales.x.min;
-                        let scXMax0 = u.scales.x.max;
-
-                        let xUnitsPerPx = u.posToVal(1, 'x') - u.posToVal(0, 'x');
-
-                        function onmove(e) {
-                            e.preventDefault();
-
-                            let left1 = e.clientX;
-                            //	let top1 = e.clientY;
-
-                            let dx = xUnitsPerPx * (left1 - left0);
-
-                            u.setScale('x', {
-                                min: scXMin0 - dx,
-                                max: scXMax0 - dx,
-                            });
-                        }
-
-                        function onup(e) {
-                            document.removeEventListener("mousemove", onmove);
-                            document.removeEventListener("mouseup", onup);
-                        }
-
-                        document.addEventListener("mousemove", onmove);
-                        document.addEventListener("mouseup", onup);
-                    }
-                });
-
-                // wheel scroll zoom
-                over.addEventListener("wheel", e => {
-                    e.preventDefault();
-
-                    let { left, top } = u.cursor;
-
-                    let leftPct = left / rect.width;
-                    let btmPct = 1 - top / rect.height;
-                    let xVal = u.posToVal(left, "x");
-                    let yVal = u.posToVal(top, "y");
-                    let oxRange = u.scales.x.max - u.scales.x.min;
-                    let oyRange = u.scales.y.max - u.scales.y.min;
-
-                    let nxRange = e.deltaY < 0 ? oxRange * factor : oxRange / factor;
-                    let nxMin = xVal - leftPct * nxRange;
-                    let nxMax = nxMin + nxRange;
-                    [nxMin, nxMax] = clamp(nxRange, nxMin, nxMax, xRange, xMin, xMax);
-
-                    let nyRange = e.deltaY < 0 ? oyRange * factor : oyRange / factor;
-                    let nyMin = yVal - btmPct * nyRange;
-                    let nyMax = nyMin + nyRange;
-                    [nyMin, nyMax] = clamp(nyRange, nyMin, nyMax, yRange, yMin, yMax);
-
-                    u.batch(() => {
-                        u.setScale("x", {
-                            min: nxMin,
-                            max: nxMax,
-                        });
-
-                        u.setScale("y", {
-                            min: nyMin,
-                            max: nyMax,
-                        });
-                    });
-                });
-            }
-        }
-    };
-}
-
+/// renders draw time to the cart
 function renderStatsPlugin({ textColor = 'red', font } = {}) {
     font = font ?? `${Math.round(12 * devicePixelRatio)}px Arial`;
 
@@ -253,7 +128,7 @@ const _bars90_100 = bars({ size: [0.9, 100] });
 const _bars100_100 = bars({ size: [1.0, 100] });
 
 
-function makeChart(data,element = document.body, {enableControls = true} = {}) {
+function makeChart(data, element = document.body, { enableControls = true } = {}) {
     // Sync
     let mooSync = uPlot.sync("moo");
 
@@ -276,7 +151,7 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
     chartControls.id = 'chartControls';
     element.appendChild(chartControls);
 
-    if(enableControls){
+    if (enableControls) {
         // range
         let thresholdRange = document.createElement('input');
         thresholdRange.type = 'range';
@@ -285,19 +160,19 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
         thresholdRange.min = 0;
         thresholdRange.max = 1;
 
-        thresholdRange.addEventListener('input', function(e){
+        thresholdRange.addEventListener('input', function (e) {
             threshold = e.target.value;
             thresholdInput.value = threshold;
             uplot1.redraw();
         });
-        
+
         // input
         let thresholdInput = document.createElement('input');
         thresholdInput.type = 'number';
         thresholdInput.step = 0.01;
         thresholdInput.value = threshold;
 
-        thresholdInput.addEventListener('input', function(e){
+        thresholdInput.addEventListener('input', function (e) {
             threshold = e.target.value;
             thresholdRange.value = threshold;
             uplot1.redraw();
@@ -464,13 +339,10 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
 
     let uRanger = new uPlot(rangerOpts, data, element);
 
-
+    let annotating = false;
 
     const cursorOpts = {
         lock: true,
-        focus: {
-            prox: 16,
-        },
         sync: {
             key: mooSync.key,
             setSeries: true,
@@ -480,8 +352,38 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
             }
         },
         drag: {
-            x: false,
-            y: false
+            setScale: false,
+            x:true,
+            y:false
+        },
+        bind: {
+            mousedown: (u, targ, handler) => {
+                return e => {
+                    if (e.button == 0) {
+                        handler(e);
+
+                        if(e.ctrlKey){
+                            annotating = true;
+                            // switch select region to annotation color
+                            u.root.querySelector(".u-select").classList.add("u-annotate");
+                        }
+                        
+
+                    }
+                }
+            },
+            mouseup: (u, targ, handler) => {
+                return e => {
+                    if (e.button == 0) {
+                        if (annotating) {
+                            // fire original handler
+                            handler(e);
+                        }
+                        else
+                            handler(e);
+                    }
+                };
+            }
         },
     };
 
@@ -496,15 +398,19 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
                 time: false,
                 min: initXmin,
                 max: initXmax,
+            },
+            y: {
+                range: [0, 1],
             }
         },
         cursor: cursorOpts,
-        select: {
-            over: false,
+        select:{
+            over:false
         },
         series: [
             {
                 label: 'Label',
+                value: (u, v) => v == null ? "-" : labels[v] + "  " + "(" + v + ")",
             },
             {
                 label: "Aggregation",
@@ -540,14 +446,14 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
             drawSeries: [
                 // draw hook for threshold line
                 (u, si) => {
-                    if(si != 1){
+                    if (si != 1) {
                         return;
                     }
                     let ctx = u.ctx;
 
                     ctx.save();
 
-                    let s  = u.series[si];
+                    let s = u.series[si];
                     let xd = u.data[0];
                     let yd = u.data[si];
 
@@ -572,6 +478,16 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
 
                     ctx.restore();
                 }
+            ],
+            setSelect: [
+                (u) => {
+                    let _lIdx = u.posToIdx(u.select.left);
+                    let _rIdx = u.posToIdx(u.select.left + u.select.width);
+
+                    console.log('region was selected');
+                    console.log("["+ _lIdx +', ' + _rIdx +"]");
+                    annotating = false;
+                }
             ]
         },
     };
@@ -585,7 +501,7 @@ function makeChart(data,element = document.body, {enableControls = true} = {}) {
         select: {
             over: false,
         },
-        legend:{
+        legend: {
             show: false
         },
         scales: {
@@ -657,7 +573,10 @@ async function fetchDataCSV(path, separator = ';') {
 
                 if (j == 0) {
                     // first column is label
-                    (cell.length > 0) ? _labels.push(parseFloat(cell)) : _agg.push(null);
+                    if (cell.length > 0) {
+                        _labels.push(cell);
+                        labels.push(cell)
+                    } else _agg.push(null);
                 }
                 else if (j == 1) {
                     // second column is aggregation vlue
@@ -688,5 +607,5 @@ async function fetchDataCSV(path, separator = ';') {
 
 // export
 
-export {fetchDataCSV, makeChart};
+export { fetchDataCSV, makeChart };
 
