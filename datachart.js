@@ -1,6 +1,6 @@
 // Dataset is used to encapsulate displayed values
 export class Dataset{
-	type = 'bar';
+	type = 'line';
 	filename = '';
 	backgroundColor = 'rgba(0,0,0,1)';
 	borderColor = 'rgba(0,0,0,1)';
@@ -59,7 +59,6 @@ export class DataChart{
 	datasets = [];
 	controls = new DataChartControls();
 	topChart;
-	bottomChart;
 	navigationRange;
 
 	settings = {
@@ -80,13 +79,7 @@ export class DataChart{
 		max: 10
 	};
 
-	bottomChartBars = [];
-
-	// events
-	static highlightChanged = new Event('highlightChanged');
-
 	// configs
-
 	topChartConfig = {
 		data: {
 			labels: this.labels,
@@ -94,11 +87,11 @@ export class DataChart{
 		},
 		options: {
 			onHover: (event, elements) => {
-				this.syncHighlight(event,elements);
+				//this.syncHighlight(event,elements);
 			},
 			barPercentage: 1,
 			interaction: {
-				mode: 'nearest'
+				mode: 'point'
 			},
 			animation:{
 				duration: 150
@@ -109,10 +102,18 @@ export class DataChart{
 				x: {
 					min: this.visibleArea.min,
 					max: this.visibleArea.max,
+					position:{
+						y: 0
+					},
 				},
 				y:{
-					min: 0,
-					max: 1
+					min: -.5,
+					max: 1,
+					ticks:{
+						callback: function(value,index,ticks){
+							return (value >= 0)? this.getLabelForValue(value) : null;
+						}
+					},
 				}
 			},
 			transitions: {
@@ -141,7 +142,10 @@ export class DataChart{
 						mode: 'x',
 						onZoom: () => {
 							this.#setPosition(this.topChart);
-							this.#syncPosition();
+							//this.#syncPosition();
+						},
+						onZoomComplete: ()=>{
+							//this.#syncPosition();
 						}
 					},
 					pan: {
@@ -150,11 +154,22 @@ export class DataChart{
 						threshold: 0,
 						onPan: () => {
 							this.#setPosition(this.topChart);
-							this.#syncPosition();
+							//this.#syncPosition();
+						},
+						onPanComplete: () =>  {
+							//this.#syncPosition();
 						}
 					}
 				},
-				annotation: this.#getThresholdAnnotation(this.threshold),
+				annotation: {
+					animations: false,
+					common: {
+						drawTime: 'afterDraw'
+					},
+					annotations:{
+						thresholdAnnotation: this.#getThresholdAnnotation(this.threshold),
+					}
+				},
 				tooltip:{
 					cornerRadius: 0
 				}
@@ -163,75 +178,8 @@ export class DataChart{
 		}
 	};
 
-	bottomChartConfig = {
-		type: 'bar',
-		data: {
-			labels: [],
-			datasets: []
-		},
-		options: {
-			onHover: (event, elements) => {
-				this.syncHighlight(event,elements);
-			},
-			animation:{
-				duration: 200
-			},
-			transitions: false,
-			responsive: true,
-			legend: {
-				labels: {
-					display:false
-				}
-			},
-			scales: {
-				x: {
-					min: this.visibleArea.min,
-					max: this.visibleArea.max,
-				},
-				y:{
-					min:0,
-					max:1,
-					grid:{
-						display:false
-					},
-					ticks:{
-						color:'rgba(0,0,0,0)'
-					}
-				}
-			},
-			plugins: {
-				legend:{
-					display:false
-				},
-				tooltip:{
-					enabled:false
-				},
-				zoom: {
-					zoom: {
-						wheel: { enabled: false },
-						mode: 'x',
-						onZoom: function () {
-							
-						}
-					},
-					pan: {
-						enabled: false,
-						mode: 'x',
-						threshold: 0,
-						onPan: function () {
-							
-						}
-					}
-				},
-			},
-			maintainAspectRatio: false,
-		}
-	};
-
-
 	// private fields
 	#topChartCanvas;
-	#bottomChartCanvas;
 
 	/// fetches data in CSV format using get request
 	async fetchCsvFile(path, separator = ';'){
@@ -321,7 +269,6 @@ export class DataChart{
 		
 		if(this.datasets.length - 1 > 0){
 			this.topChart.update();
-			this.bottomChart.update();
 		}
 		
 	}
@@ -344,23 +291,14 @@ export class DataChart{
 		let topChartContainer = document.createElement('div');
 		topChartContainer.id = 'dataChartTopChartContainer';
 
-		let bottomChartContainer = document.createElement('div');
-		bottomChartContainer.id = 'dataChartBottomChartContainer';
-
 		// create canvases for the charts
 		let topChartCanvas = document.createElement('canvas');
 		topChartCanvas.id = 'dataChartCanvas1';
 		this.#topChartCanvas = topChartCanvas;
-		let bottomChartCanvas = document.createElement('canvas');
-		bottomChartCanvas.id = 'dataChartCanvas2';
-		bottomChartCanvas.height = this.settings.bottomChartHeight;
-		this.#bottomChartCanvas = bottomChartCanvas;
 		topChartContainer.appendChild(topChartCanvas);
-		bottomChartContainer.appendChild(bottomChartCanvas);
 
 		// append chart containers to main container
 		container.appendChild(topChartContainer);
-		container.appendChild(bottomChartContainer);
 
 		// navigation range
 		let navContainer = document.createElement('div');
@@ -376,14 +314,13 @@ export class DataChart{
 		this.controls.nextButton.addEventListener('click',() => this.chartNextStep());
 
 		this.#create();
-		this.#initBottomChartBars();
+		this.#renderAPRs();
 	}
 
 	/// main method
 	#create(){
 		// create charts
 		this.topChart = new Chart(this.#topChartCanvas, this.topChartConfig);
-		this.bottomChart = new Chart(this.#bottomChartCanvas, this.bottomChartConfig);
 		//create range slider
 		this.navigationRange = new rSlider({
 			target: '#navRange',
@@ -420,39 +357,35 @@ export class DataChart{
 		this.topChart.data.datasets[0].fill.target.value = this.threshold;
 
 		//change horizontal line
-		this.topChart.options.plugins.annotation.annotations.tresholdLine.yMin = this.threshold;
-		this.topChart.options.plugins.annotation.annotations.tresholdLine.yMax = this.threshold;
+		this.topChart.options.plugins.annotation.annotations.thresholdAnnotation.yMin = this.threshold;
+		this.topChart.options.plugins.annotation.annotations.thresholdAnnotation.yMax = this.threshold;
 
 
 		this.topChart.update();
-		this.bottomChart.update();
 		this.topChart.options.animation = true;
-
 		// rerender bottom boxes
-		this.#initBottomChartBars();
+		this.#renderAPRs();
 	}
 
 
 	// creates bars in bottom chart
-	#initBottomChartBars(){
-		this.bottomChartBars = [];
-		this.bottomChart.data.datasets = [];
-		this.datasets[0].data.forEach( element => {
-			if(element >= this.threshold){
-				this.bottomChartBars.push(1);
-			}
-			else{
-				this.bottomChartBars.push(0);
-			}
-		});
-		this.bottomChart.data.datasets.push({
-			data: this.bottomChartBars,
-			barPercentage: 1,
-			categoryPercentage: 1,
-			hoverBackgroundColor: 'rgba(255, 184, 0,0.5)',
-		});
-		this.bottomChart.data.labels = this.labels;
-		this.bottomChart.update();
+	#renderAPRs(){
+
+		for(let i = 0; i < this.labels.length; i++){
+			this.topChartConfig.options.plugins.annotation.annotations['APRbox' + i] = null;
+			if(this.datasets[0].data[i] > this.threshold)
+				this.topChartConfig.options.plugins.annotation.annotations['APRbox' + i] = {
+					type: 'box',
+					xMin: i -.5,
+					xMax: i + .5,
+					yMin: -.35,
+					yMax: -.25,
+					backgroundColor: 'rgba(255, 184, 0,0.5)',
+					borderColor: 'rgba(0, 0, 0,0)',
+				}
+		}
+
+		this.topChart.update();
 	}
 
 	#setPosition(chart){
@@ -462,12 +395,6 @@ export class DataChart{
 
 	// Syncs position of both charts
 	#syncPosition(){
-		this.topChart.options.scales.x.min = this.visibleArea.min;
-		this.bottomChart.options.scales.x.min = this.visibleArea.min;
-		this.topChart.options.scales.x.max = this.visibleArea.max;
-		this.bottomChart.options.scales.x.max = this.visibleArea.max;
-		this.topChart.update();
-		this.bottomChart.update();
 		this.navigationRange.setValues(this.visibleArea.min,this.visibleArea.max);
 	}
 
@@ -476,16 +403,12 @@ export class DataChart{
 	*/
 	#getThresholdAnnotation(threshold) {
 		return {
-			annotations: {
-				tresholdLine: {
-					// Indicates the type of annotation
-					type: 'line',
-					yMin: this.threshold,
-					yMax: this.threshold,
-					backgroundColor: 'rgba(255, 99, 132, 0.25)',
-					borderDash: [5, 15]
-				}
-			}
+			// Indicates the type of annotation
+			type: 'line',
+			yMin: this.threshold,
+			yMax: this.threshold,
+			backgroundColor: 'rgba(255, 99, 132, 0.25)',
+			borderDash: [10, 15]
 		}
 	}
 
@@ -540,7 +463,8 @@ export class DataChart{
 
 	// synchronizes highlith (hover effect on both charts)
 	syncHighlight(event, elemets){
-		elemets.forEach( e => {
+		for(let i = 0; i < elemets.length; i++){
+			let e = elemets[i];
 			this.topChart.setActiveElements([
 				{
 					datasetIndex: 1,
@@ -555,7 +479,7 @@ export class DataChart{
 			]);
 			this.topChart.update();
 			this.bottomChart.update();
-		});
+		}
 	}
 
 	// sets visibility of dataset
