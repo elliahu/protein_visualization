@@ -116,7 +116,7 @@ function prepareData(data, threshold) {
 function getWindowSize(heighLimit = 400) {
     return {
         width: window.innerWidth - 100,
-        //height: window.innerHeight - 200, // relative
+        //height: window.innerHeight - 200, // relative height
         height: heighLimit // absolute height
     }
 }
@@ -151,6 +151,16 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
     chartControls.id = 'chartControls';
     element.appendChild(chartControls);
 
+    function updateThreshold(_threshold){
+        threshold = _threshold;
+        uplot1.data[1][0] = threshold;
+        uplot1.data[1][uplot1.data[1].length - 1] = threshold;
+        uplot1.redraw();
+
+        uplot2.setData([data[0],prepareData(data[2], threshold)]);
+        uplot2.redraw();
+    }
+
     if (enableControls) {
         // range
         let thresholdRange = document.createElement('input');
@@ -161,9 +171,8 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         thresholdRange.max = 1;
 
         thresholdRange.addEventListener('input', function (e) {
-            threshold = e.target.value;
+            updateThreshold(e.target.value);
             thresholdInput.value = threshold;
-            uplot1.redraw();
         });
 
         // input
@@ -173,9 +182,8 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         thresholdInput.value = threshold;
 
         thresholdInput.addEventListener('input', function (e) {
-            threshold = e.target.value;
+            updateThreshold(e.target.value);
             thresholdRange.value = threshold;
-            uplot1.redraw();
         });
 
         chartControls.appendChild(thresholdRange);
@@ -337,7 +345,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         ],
     };
 
-    let uRanger = new uPlot(rangerOpts, data, element);
+    let uRanger = new uPlot(rangerOpts, [data[0],data[2]], element);
 
     let annotating = false;
 
@@ -357,6 +365,40 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             y:false
         },
     };
+
+    function drawThresholdLine(u, si){
+        if (si != 1) {
+            return;
+        }
+        let ctx = u.ctx;
+
+        ctx.save();
+
+        let s = u.series[si];
+        let xd = u.data[0];
+        let yd = u.data[si];
+
+        let [i0, i1] = s.idxs;
+
+        let x0 = u.valToPos(xd[i0], 'x', true);
+        let y0 = u.valToPos(threshold, 'y', true);
+        let x1 = u.valToPos(xd[i1], 'x', true);
+        let y1 = u.valToPos(threshold, 'y', true);
+
+        const offset = (s.width % 2) / 2;
+
+        ctx.translate(offset, offset);
+        ctx.beginPath();
+        ctx.strokeStyle = '#333';
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+
+        ctx.translate(-offset, -offset);
+
+        ctx.restore();
+    }
 
     const opts = {
         title: "Aggregation profile",
@@ -384,6 +426,20 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
                 value: (u, v) => v == null ? "-" : labels[v] + "  " + "(" + v + ")",
             },
             {
+                label: "Threshold",
+                value: (u, v) => threshold,
+                stroke: "#333",
+                dash: [10, 5],
+                spanGaps:true,
+            },
+            {
+                label: "Aggregation trend",
+                value: (u, v) => v == null ? "-" : v + "",
+                stroke: "red",
+                fill: "rgba(255, 0, 0, 0.3)",
+                fillTo:0
+            },
+            {
                 label: "Aggregation",
                 value: (u, v) => v == null ? "-" : v + "",
                 stroke: "red",
@@ -392,21 +448,20 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
                 points: { show: false },
             },
             {
-                label: "Aggregation trend",
-                value: (u, v) => v == null ? "-" : v + "",
-                stroke: "red",
-            },
-            {
                 label: "ASA",
                 value: (u, v) => v == null ? "-" : v + "",
                 stroke: "blue",
-                dash: [10, 5]
+                dash: [10, 5],
+            },
+        ],
+        bands: [
+            {
+                series: [2,1]
             }
         ],
         axes: [
             {
                 values: (u, vals, space) => {
-                    console.log(u);
                     return vals.map(v => v);
                     //return  vals.map(v => labels[v])
                 },
@@ -423,39 +478,8 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         hooks: {
             drawSeries: [
                 // draw hook for threshold line
-                (u, si) => {
-                    if (si != 1) {
-                        return;
-                    }
-                    let ctx = u.ctx;
-
-                    ctx.save();
-
-                    let s = u.series[si];
-                    let xd = u.data[0];
-                    let yd = u.data[si];
-
-                    let [i0, i1] = s.idxs;
-
-                    let x0 = u.valToPos(xd[i0], 'x', true);
-                    let y0 = u.valToPos(threshold, 'y', true);
-                    let x1 = u.valToPos(xd[i1], 'x', true);
-                    let y1 = u.valToPos(threshold, 'y', true);
-
-                    const offset = (s.width % 2) / 2;
-
-                    ctx.translate(offset, offset);
-                    ctx.beginPath();
-                    ctx.strokeStyle = '#333';
-                    ctx.setLineDash([5, 5]);
-                    ctx.moveTo(x0, y0);
-                    ctx.lineTo(x1, y1);
-                    ctx.stroke();
-
-                    ctx.translate(-offset, -offset);
-
-                    ctx.restore();
-                }
+                // unused -> used dataset [x, null ... null, x];
+                //(u, si) => drawThresholdLine(u,si)
             ],
             setSelect:[
                 (u) => {
@@ -510,8 +534,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             //wheelZoomPlugin({factor: .75}),
         ]
     };
-
-    let uplot2 = new uPlot(opts2, [data[0], prepareData(data[1], threshold),], element);
+    let uplot2 = new uPlot(opts2, [data[0], prepareData(data[2], threshold),], element);
 
     window.addEventListener("resize", e => {
         uplot1.setSize(getWindowSize());
@@ -536,6 +559,7 @@ async function fetchDataCSV(path, separator = ';') {
         let _labels = [];
         let _agg = [];
         let _asa = [];
+        let _threshold = [];
 
         // for each line, to be changed to for instead
         lines.forEach((line, index) => {
@@ -543,6 +567,8 @@ async function fetchDataCSV(path, separator = ';') {
             let cells = line.split(separator);
 
             _x.push(index);
+            (index == 0 || index == lines.length-1) ? _threshold.push(threshold) : _threshold.push(null);
+            //_threshold.push(threshold);
 
             for (let j = 0; j < cells.length; j++) {
                 let cell = cells[j];
@@ -564,13 +590,15 @@ async function fetchDataCSV(path, separator = ';') {
 
             }
         });
+        console.log(_threshold);
         return {
             labels: _labels,
             data: [
                 _x,
+                _threshold, // threshold line
                 _agg, // line
                 _agg, // bar
-                _asa
+                _asa,
             ]
         }
 
