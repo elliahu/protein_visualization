@@ -3,7 +3,8 @@ import uPlot from './dist/uPlot.esm.js';
 let threshold = 0.5;
 let labels = [];
 
-/// Plugins 
+/// Plugin for rendering points in the chart as a star
+/// experimantal plugin to be removed on release
 function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {}) {
     outerRadius *= devicePixelRatio;
     innerRadius *= devicePixelRatio;
@@ -70,7 +71,7 @@ function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {
     };
 }
 
-/// renders draw time to the cart
+/// renders draw time to the chart
 function renderStatsPlugin({ textColor = 'red', font } = {}) {
     font = font ?? `${Math.round(12 * devicePixelRatio)}px Arial`;
 
@@ -104,7 +105,9 @@ function renderStatsPlugin({ textColor = 'red', font } = {}) {
     };
 }
 
-
+/// returns array of the same length as data parameter
+/// where every value over threshold in the data array is represented by 1
+/// other values are 0
 function prepareData(data, threshold) {
     let _data = [];
     for (let i = 0; i < data.length; i++) {
@@ -113,6 +116,8 @@ function prepareData(data, threshold) {
     return _data;
 }
 
+/// calculates size of the window
+/// allows height limitation
 function getWindowSize(heighLimit = 400) {
     return {
         width: window.innerWidth - 100,
@@ -121,14 +126,27 @@ function getWindowSize(heighLimit = 400) {
     }
 }
 
+/// 
 const { linear, spline, stepped, bars } = uPlot.paths;
 const _bars60_100 = bars({ size: [0.6, 100] });
 const _bars80_100 = bars({ size: [0.8, 100] });
 const _bars90_100 = bars({ size: [0.9, 100] });
 const _bars100_100 = bars({ size: [1.0, 100] });
 
+/// adds event listener of event ev on element el which call function
+/// fn when fired
+function on(ev, el, fn) {
+    el.addEventListener(ev, fn);
+}
 
-function makeChart(data, element = document.body, { enableControls = true } = {}) {
+/// removes event listener of event ev on element el which call function
+/// fn when fired
+function off(ev, el, fn) {
+    el.removeEventListener(ev, fn);
+}
+
+/// function creates charts
+function makeChart(data, { enableControls = true } = {}, element = document.body,) {
     // Sync
     let mooSync = uPlot.sync("moo");
 
@@ -151,13 +169,16 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
     chartControls.id = 'chartControls';
     element.appendChild(chartControls);
 
-    function updateThreshold(_threshold){
+    /// function updates threshold to a new value
+    /// then uses the new threshold to rerender threshold line in the uplot1 chart
+    /// and bars in the uplot2 chart
+    function updateThreshold(_threshold) {
         threshold = _threshold;
         uplot1.data[1][0] = threshold;
         uplot1.data[1][uplot1.data[1].length - 1] = threshold;
         uplot1.redraw();
 
-        uplot2.setData([data[0],prepareData(data[2], threshold)]);
+        uplot2.setData([data[0], prepareData(data[2], threshold)]);
         uplot2.redraw();
     }
 
@@ -170,10 +191,11 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         thresholdRange.min = 0;
         thresholdRange.max = 1;
 
-        thresholdRange.addEventListener('input', function (e) {
+        on('input', thresholdRange, function (e) {
             updateThreshold(e.target.value);
             thresholdInput.value = threshold;
         });
+
 
         // input
         let thresholdInput = document.createElement('input');
@@ -181,7 +203,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         thresholdInput.step = 0.01;
         thresholdInput.value = threshold;
 
-        thresholdInput.addEventListener('input', function (e) {
+        on('input', thresholdInput, function (e) {
             updateThreshold(e.target.value);
             thresholdRange.value = threshold;
         });
@@ -192,9 +214,11 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
 
 
     /// RANGER
+    /// ranger is used for navigation in the dataset
+    /// alows selection of visible range
 
-    let initXmin = 0;
-    let initXmax = 35;
+    let initXmin = 0; // initial value of start
+    let initXmax = 35; // initial value og end
 
     let doc = document;
 
@@ -212,19 +236,12 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         };
     }
 
+    /// places div as a child if par and adds cls class to it
     function placeDiv(par, cls) {
         let el = doc.createElement("div");
         el.classList.add(cls);
         par.appendChild(el);
         return el;
-    }
-
-    function on(ev, el, fn) {
-        el.addEventListener(ev, fn);
-    }
-
-    function off(ev, el, fn) {
-        el.removeEventListener(ev, fn);
     }
 
     let x0;
@@ -304,8 +321,9 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             {
                 stroke: "red",
                 fill: "rgba(255, 0, 0, 0.3)",
-                paths: _bars100_100,
-                points: { show: false },
+                fillTo: 0,
+                //paths: _bars100_100,
+                //points: { show: false },
             }
         ],
         hooks: {
@@ -345,7 +363,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         ],
     };
 
-    let uRanger = new uPlot(rangerOpts, [data[0],data[2]], element);
+    let uRanger = new uPlot(rangerOpts, [data[0], data[2]], element);
 
     let annotating = false;
 
@@ -361,12 +379,13 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         },
         drag: {
             setScale: false,
-            x:true,
-            y:false
+            x: true,
+            y: false
         },
     };
 
-    function drawThresholdLine(u, si){
+    /// hook function to draw threshold line directly to canvas
+    function drawThresholdLine(u, si) {
         if (si != 1) {
             return;
         }
@@ -417,8 +436,8 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
             }
         },
         cursor: cursorOpts,
-        select:{
-            over:false
+        select: {
+            over: false
         },
         series: [
             {
@@ -430,14 +449,14 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
                 value: (u, v) => threshold,
                 stroke: "#333",
                 dash: [10, 5],
-                spanGaps:true,
+                spanGaps: true,
             },
             {
                 label: "Aggregation trend",
                 value: (u, v) => v == null ? "-" : v + "",
                 stroke: "red",
                 fill: "rgba(255, 0, 0, 0.3)",
-                fillTo:0
+                fillTo: 0
             },
             {
                 label: "Aggregation",
@@ -456,7 +475,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
         ],
         bands: [
             {
-                series: [2,1]
+                series: [2, 1]
             }
         ],
         axes: [
@@ -481,7 +500,7 @@ function makeChart(data, element = document.body, { enableControls = true } = {}
                 // unused -> used dataset [x, null ... null, x];
                 //(u, si) => drawThresholdLine(u,si)
             ],
-            setSelect:[
+            setSelect: [
                 (u) => {
                     let _lIdx = u.posToIdx(u.select.left);
                     let _rIdx = u.posToIdx(u.select.left + u.select.width);
@@ -567,7 +586,7 @@ async function fetchDataCSV(path, separator = ';') {
             let cells = line.split(separator);
 
             _x.push(index);
-            (index == 0 || index == lines.length-1) ? _threshold.push(threshold) : _threshold.push(null);
+            (index == 0 || index == lines.length - 1) ? _threshold.push(threshold) : _threshold.push(null);
             //_threshold.push(threshold);
 
             for (let j = 0; j < cells.length; j++) {
@@ -590,7 +609,6 @@ async function fetchDataCSV(path, separator = ';') {
 
             }
         });
-        console.log(_threshold);
         return {
             labels: _labels,
             data: [
