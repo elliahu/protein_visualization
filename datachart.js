@@ -320,10 +320,8 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
             {},
             {
                 stroke: "red",
-                fill: "rgba(255, 0, 0, 0.3)",
+                fill: "rgba(255, 155, 84, 1)",
                 fillTo: 0,
-                //paths: _bars100_100,
-                //points: { show: false },
             }
         ],
         hooks: {
@@ -452,20 +450,22 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
                 spanGaps: true,
             },
             {
-                label: "Aggregation trend",
-                value: (u, v) => v == null ? "-" : v + "",
-                stroke: "red",
-                fill: "rgba(255, 0, 0, 0.3)",
-                fillTo: 0
-            },
-            {
                 label: "Aggregation",
                 value: (u, v) => v == null ? "-" : v + "",
                 stroke: "red",
-                fill: "rgba(255, 0, 0, 0.3)",
+                fill: "rgba(255, 155, 84, 1)",
                 paths: _bars80_100,
                 points: { show: false },
             },
+            {
+                label: "Aggregation trend",
+                value: (u, v) => v == null ? "-" : v + "",
+                stroke: "red",
+                fill: "rgba(255, 155, 84, 0.4)",
+                fillTo: 0,
+                width:2
+            },
+            
             {
                 label: "ASA",
                 value: (u, v) => v == null ? "-" : v + "",
@@ -475,7 +475,7 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
         ],
         bands: [
             {
-                series: [2, 1]
+                series: [3, 1]
             }
         ],
         axes: [
@@ -535,8 +535,8 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
             {
                 label: "APRs",
                 value: (u, v) => v == null ? "-" : v + "",
-                fill: "rgba(255, 0, 0, 0.3)",
-                paths: _bars100_100,
+                fill: "rgba(255, 155, 84, 1)",
+                paths: _bars80_100,
                 points: {
                     show: false
                 }
