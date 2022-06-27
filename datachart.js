@@ -463,9 +463,9 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
                 stroke: "red",
                 fill: "rgba(255, 155, 84, 0.4)",
                 fillTo: 0,
-                width:2
+                width: 2
             },
-            
+
             {
                 label: "ASA",
                 value: (u, v) => v == null ? "-" : v + "",
@@ -570,6 +570,10 @@ async function fetchDataCSV(path, separator = ';') {
     }
     let text = await data.text();
 
+    return parseCSV(text, separator);
+}
+
+function parseCSV(text, separator = ';') {
     // parse text line by line
     let lines = text.split('\n');
     if (lines.length > 0) {
@@ -619,15 +623,11 @@ async function fetchDataCSV(path, separator = ';') {
                 _asa,
             ]
         }
-
-    }
-    else {
-        throw `File ${path} is empty`;
     }
 }
 
 
 // export
 
-export { fetchDataCSV, makeChart };
+export { fetchDataCSV, parseCSV, makeChart };
 
