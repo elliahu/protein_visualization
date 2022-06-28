@@ -116,16 +116,6 @@ function prepareData(data, threshold) {
     return _data;
 }
 
-/// calculates size of the window
-/// allows height limitation
-function getWindowSize(heighLimit = 400) {
-    return {
-        width: window.innerWidth - 100,
-        //height: window.innerHeight - 200, // relative height
-        height: heighLimit // absolute height
-    }
-}
-
 /// 
 const { linear, spline, stepped, bars } = uPlot.paths;
 const _bars60_100 = bars({ size: [0.6, 100] });
@@ -146,7 +136,9 @@ function off(ev, el, fn) {
 }
 
 /// function creates charts
-function makeChart(data, { enableControls = true } = {}, element = document.body,) {
+function makeChart(data, { 
+        enableControls = true,
+    } = {}, element = document.body,) {
     // Sync
     let mooSync = uPlot.sync("moo");
 
@@ -162,6 +154,17 @@ function makeChart(data, { enableControls = true } = {}, element = document.body
 
     let uplot2HeightLimit = 100;
     let rangerHeightLimit = 100;
+
+
+    /// calculates size of the window
+    /// allows height limitation
+    function getWindowSize(heighLimit = 400) {
+        return {
+            width: element.offsetWidth,
+            //height: window.innerHeight - 200, // relative height
+            height: heighLimit // absolute height
+        }
+    }
 
     // threshold controls
 
