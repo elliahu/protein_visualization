@@ -6,12 +6,12 @@ let config = {
     enableControls: true
 }
 
-/*
+
 fetchDataCSV(csv).then((result) => {
     setTimeout(() => makeChart(result.data, config, document.body));
 });
-*/
 
+/*
 let raw = `K;0.029938459
 N;0.079515249
 T;0.095927288
@@ -65,3 +65,4 @@ E;0.0791848`;
 
 setTimeout(() => makeChart(parseCSV(raw).data, config, document.body));
 
+*/
