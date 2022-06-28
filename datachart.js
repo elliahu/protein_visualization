@@ -614,13 +614,13 @@ function parseCSV(text, separator = ';') {
             }
         });
         return {
-            labels: _labels,
+            labels: _labels, // array of lables [K,L,M,...]
             data: [
-                _x,
-                _threshold, // threshold line
-                _agg, // line
-                _agg, // bar
-                _asa,
+                _x, // array of x values [1,2,3,4, ... ]
+                _threshold, // threshold line [threshold, null, null, ... , null, threshold]
+                _agg, // second column from csv source - will be displayed as line
+                _agg, // second column from csv source - will be displayed as bars
+                _asa, // third column from csv source - currently randomly generated
             ]
         }
     }
