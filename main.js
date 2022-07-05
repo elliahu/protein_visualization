@@ -5,6 +5,7 @@ let csv = 'output_last/avg_Maternal_protein_pumilio.csv';
 let config = {
     enableControls: true,
     onAreaSelected: (min, max) => console.log(`area selected [${min}, ${max}]`),
+    displayThresholdLineInRanger: true
 }
 
 

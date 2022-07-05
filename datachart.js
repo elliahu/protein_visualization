@@ -212,6 +212,7 @@ function makeChart(data, {
         dash: []
     },
     columnHighlight = true,
+    displayThresholdLineInRanger = true,
 } = {}, element = document.body,) {
     // Sync
     let mooSync = uPlot.sync("moo");
@@ -257,6 +258,12 @@ function makeChart(data, {
 
         uplot2.setData([data[0], prepareData(data[2], threshold)]);
         uplot2.redraw();
+
+        if(displayThresholdLineInRanger){
+            uRanger.data[2][0] = threshold;
+            uRanger.data[2][uplot1.data[1].length - 1] = threshold;
+            uRanger.redraw();
+        }
     }
 
     if (enableControls) {
@@ -399,7 +406,15 @@ function makeChart(data, {
                 stroke: "red",
                 fill: "rgba(255, 155, 84, 1)",
                 fillTo: 0,
-            }
+            },
+            {
+                label: "Threshold",
+                value: (u, v) => threshold,
+                stroke: "#333",
+                dash: [10, 5],
+                spanGaps: true,
+                show: displayThresholdLineInRanger
+            },
         ],
         hooks: {
             ready: [
@@ -445,7 +460,7 @@ function makeChart(data, {
         ],
     };
 
-    let uRanger = new uPlot(rangerOpts, [data[0], data[2]], element);
+    let uRanger = new uPlot(rangerOpts, [data[0], data[2],data[1]], element);
 
     let annotating = false;
 
