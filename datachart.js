@@ -71,6 +71,67 @@ function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {
     };
 }
 
+// column-highlights the hovered x index
+function columnHighlightPlugin({ className, style = {backgroundColor: "rgba(253,231,76,0.2)"} } = {}) {
+    let underEl, overEl, highlightEl, currIdx;
+
+    function init(u) {
+        underEl = u.under;
+        overEl = u.over;
+
+        highlightEl = document.createElement("div");
+
+        className && highlightEl.classList.add(className);
+
+        uPlot.assign(highlightEl.style, {
+            pointerEvents: "none",
+            display: "none",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            height: "100%",
+            ...style
+        });
+
+        underEl.appendChild(highlightEl);
+
+        // show/hide highlight on enter/exit
+        overEl.addEventListener("mouseenter", () => {highlightEl.style.display = null;});
+        overEl.addEventListener("mouseleave", () => {highlightEl.style.display = "none";});
+    }
+
+    function update(u) {
+        if (currIdx !== u.cursor.idx) {
+            currIdx = u.cursor.idx;
+
+            let [iMin, iMax] = u.series[0].idxs;
+
+            const dx    = iMax - iMin;
+            const width = (u.bbox.width / dx) / devicePixelRatio;
+            const xVal  = u.scales.x.distr == 2 ? currIdx : u.data[0][currIdx];
+            const left  = u.valToPos(xVal, "x") - width / 2;
+
+            highlightEl.style.transform = "translateX(" + Math.round(left) + "px)";
+            highlightEl.style.width = Math.round(width) + "px";
+        }
+    }
+
+    return {
+        opts: (u, opts) => {
+            uPlot.assign(opts, {
+                cursor: {
+                    x: true,
+                    y: true,
+                }
+            });
+        },
+        hooks: {
+            init: init,
+            setCursor: update,
+        }
+    };
+}
+
 /// renders draw time to the chart
 function renderStatsPlugin({ textColor = 'red', font } = {}) {
     font = font ?? `${Math.round(12 * devicePixelRatio)}px Arial`;
@@ -136,9 +197,13 @@ function off(ev, el, fn) {
 }
 
 /// function creates charts
-function makeChart(data, { 
-        enableControls = true,
-    } = {}, element = document.body,) {
+function makeChart(data, {
+    enableControls = true,
+    onAreaSelected = function (min, max) { },
+    labelBreakPoint = 8,
+    gridColor = '#eee',
+    columnHighlight = true,
+} = {}, element = document.body,) {
     // Sync
     let mooSync = uPlot.sync("moo");
 
@@ -420,6 +485,19 @@ function makeChart(data, {
         ctx.restore();
     }
 
+    function getXGridSpacing(self, axisIdx, scaleMin, scaleMax) {
+        let len = scaleMax - scaleMin;
+        let diff = self.bbox.width / len;
+        return diff;
+    }
+
+    function getXGridValues(self, vals, axisIdx, foundSpace, foundIcr) {
+        if(foundSpace > labelBreakPoint)
+            return vals.map(v => labels[v]);
+        else
+            return "";
+    }
+
     const opts = {
         title: "Aggregation profile",
         ...getWindowSize(),
@@ -438,7 +516,7 @@ function makeChart(data, {
         },
         cursor: cursorOpts,
         select: {
-            over: false
+            over: false,
         },
         series: [
             {
@@ -483,19 +561,36 @@ function makeChart(data, {
         ],
         axes: [
             {
-                values: (u, vals, space) => {
-                    return vals.map(v => v);
-                    //return  vals.map(v => labels[v])
+                values: getXGridValues,
+                space: getXGridSpacing,
+                grid: {
+                    show: true,
+                    stroke: gridColor,
+                    width: 2,
+                    dash: [],
                 },
-                //space: ()=> 15
             },
             {
                 values: (u, vals, space) => vals.map(v => +v.toFixed(1) + ""),
+                grid: {
+                    show: true,
+                    stroke: gridColor,
+                    width: 2,
+                    dash: [],
+                },
+                ticks: {
+                    show: true,
+                    stroke: gridColor,
+                    width: 2,
+                    dash: [],
+                    size: 10,
+                },
             },
         ],
         plugins: [
             //wheelZoomPlugin({factor: .75}),
             renderStatsPlugin({ textColor: '#333' }),
+            (columnHighlight)? columnHighlightPlugin():()=>{},
         ],
         hooks: {
             drawSeries: [
@@ -508,7 +603,8 @@ function makeChart(data, {
                     let _lIdx = u.posToIdx(u.select.left);
                     let _rIdx = u.posToIdx(u.select.left + u.select.width);
 
-                    console.log(`region selected [${_lIdx},${_rIdx}]`);
+                    onAreaSelected(_lIdx, _rIdx);
+                    //console.log(`region selected [${_lIdx},${_rIdx}]`);
                 }
             ]
         },
@@ -546,7 +642,16 @@ function makeChart(data, {
             },
         ],
         axes: [
-            {},
+            {
+                values: getXGridValues,
+                space: getXGridSpacing,
+                grid: {
+                    show: true,
+                    stroke: gridColor,
+                    width: 2,
+                    dash: [],
+                },
+            },
             {
                 values: (u, vals, space) => "",
             },

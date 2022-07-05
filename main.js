@@ -3,7 +3,8 @@ import {fetchDataCSV,parseCSV, makeChart} from './datachart.js';
 let csv = 'output_last/avg_Maternal_protein_pumilio.csv';
 
 let config = {
-    enableControls: true
+    enableControls: true,
+    onAreaSelected: (min, max) => console.log(`area selected [${min}, ${max}]`),
 }
 
 
