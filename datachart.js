@@ -201,7 +201,7 @@ function makeChart(data, {
     enableControls = true,
     onAreaSelected = function (min, max) { },
     labelBreakPoint = 8,
-    gridColor = '#eee',
+    gridColor = '#dedede',
     columnHighlight = true,
 } = {}, element = document.body,) {
     // Sync
@@ -422,7 +422,14 @@ function makeChart(data, {
             ],
         },
         axes: [
-            {},
+            {
+                grid: {
+                    show: true,
+                    stroke: gridColor,
+                    width: 2,
+                    dash: [],
+                },
+            },
             {
                 values: (u, vals, space) => "",
             },
