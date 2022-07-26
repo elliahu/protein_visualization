@@ -1,10 +1,11 @@
 import uPlot from './dist/uPlot.esm.js';
 
+// default threshold value is set to 0.5
 let threshold = 0.5;
 let labels = [];
 
 /// Plugin for rendering points in the chart as a star
-/// experimantal plugin to be removed on release
+/// Experimantal plugin to be removed on release
 function seriesPointsPlugin({ spikes = 4, outerRadius = 8, innerRadius = 4 } = {}) {
     outerRadius *= devicePixelRatio;
     innerRadius *= devicePixelRatio;
@@ -760,7 +761,5 @@ function parseCSV(text, separator = ';') {
 }
 
 
-// export
-
+// exports
 export { fetchDataCSV, parseCSV, makeChart };
-

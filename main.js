@@ -1,14 +1,16 @@
 import {fetchDataCSV,parseCSV, makeChart} from './datachart.js';
 
+// name of the csv file that will be fetched
 let csv = 'output_last/avg_Maternal_protein_pumilio.csv';
 
+// create an optional config to configure chart
 let config = {
-    enableControls: true,
-    onAreaSelected: (min, max) => console.log(`area selected [${min}, ${max}]`),
-    displayThresholdLineInRanger: true
+    enableControls: true, // displays controls at the top
+    onAreaSelected: (min, max) => console.log(`area selected [${min}, ${max}]`), // area selected callback
+    displayThresholdLineInRanger: true, // display / hide threshold line in ranger
 }
 
-
+// fetch the file then use the data from the result
 fetchDataCSV(csv).then((result) => {
     setTimeout(() => makeChart(result.data, config, document.body));
 });
